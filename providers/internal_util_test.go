@@ -12,14 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func updateURL(url *url.URL, hostname string) {
-	if url == nil {
-		return
-	}
-	url.Scheme = "http"
-	url.Host = hostname
-}
-
 type ValidateSessionTestProvider struct {
 	*ProviderData
 }

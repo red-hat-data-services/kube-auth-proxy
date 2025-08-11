@@ -50,28 +50,12 @@ func validateProvider(provider options.Provider, providerIDs map[string]struct{}
 		msgs = append(msgs, validateClientSecret(provider)...)
 	}
 
-	if provider.Type == "google" {
-		msgs = append(msgs, validateGoogleConfig(provider)...)
-	}
-
-	if provider.Type == "entra-id" {
-		msgs = append(msgs, validateEntraConfig(provider)...)
-	}
-
 	return msgs
 }
 
-// providerRequiresClientSecret checks if provider requires client secret to be set
-// or it can be omitted in favor of JWT token to authenticate oAuth client
-func providerRequiresClientSecret(provider options.Provider) bool {
-	if provider.Type == "entra-id" && provider.MicrosoftEntraIDConfig.FederatedTokenAuth {
-		return false
-	}
-
-	if provider.Type == "login.gov" {
-		return false
-	}
-
+// providerRequiresClientSecret determines whether a provider must supply a client secret.
+// Currently always returns true (confidential clients only).
+func providerRequiresClientSecret(_ options.Provider) bool {
 	return true
 }
 
@@ -85,55 +69,6 @@ func validateClientSecret(provider options.Provider) []string {
 		_, err := os.ReadFile(provider.ClientSecretFile)
 		if err != nil {
 			msgs = append(msgs, "could not read client secret file: "+provider.ClientSecretFile)
-		}
-	}
-
-	return msgs
-}
-
-func validateGoogleConfig(provider options.Provider) []string {
-	msgs := []string{}
-
-	hasAdminEmail := provider.GoogleConfig.AdminEmail != ""
-	hasSAJSON := provider.GoogleConfig.ServiceAccountJSON != ""
-	useADC := provider.GoogleConfig.UseApplicationDefaultCredentials
-
-	if !hasAdminEmail && !hasSAJSON && !useADC {
-		return msgs
-	}
-
-	if !hasAdminEmail {
-		msgs = append(msgs, "missing setting: google-admin-email")
-	}
-
-	_, err := os.Stat(provider.GoogleConfig.ServiceAccountJSON)
-	if !useADC {
-		if !hasSAJSON {
-			msgs = append(msgs, "missing setting: google-service-account-json or google-use-application-default-credentials")
-		} else if err != nil {
-			msgs = append(msgs, fmt.Sprintf("Google credentials file not found: %s", provider.GoogleConfig.ServiceAccountJSON))
-		}
-	} else if hasSAJSON {
-		msgs = append(msgs, "invalid setting: can't use both google-service-account-json and google-use-application-default-credentials")
-	}
-
-	return msgs
-}
-
-func validateEntraConfig(provider options.Provider) []string {
-	msgs := []string{}
-
-	if provider.MicrosoftEntraIDConfig.FederatedTokenAuth {
-		federatedTokenPath := os.Getenv("AZURE_FEDERATED_TOKEN_FILE")
-
-		if federatedTokenPath == "" {
-			msgs = append(msgs, "entra federated token authentication is enabled, but AZURE_FEDERATED_TOKEN_FILE variable is not set, check your workload identity configuration.")
-			return msgs
-		}
-
-		_, err := os.ReadFile(federatedTokenPath)
-		if err != nil {
-			msgs = append(msgs, "could not read entra federated token file")
 		}
 	}
 

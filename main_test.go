@@ -27,6 +27,9 @@ set_basic_auth="true"
 basic_auth_password="super-secret-password"
 client_id="oauth2-proxy"
 client_secret="b2F1dGgyLXByb3h5LWNsaWVudC1zZWNyZXQK"
+oidc_issuer_url="https://example.com/oidc"
+skip_oidc_discovery="true"
+oidc_jwks_url="https://example.com/oidc/jwks"
 `
 
 	const testAlphaConfig = `
@@ -69,13 +72,14 @@ injectResponseHeaders:
 server:
   bindAddress: "127.0.0.1:4180"
 providers:
-- provider: google
-  ID: google=oauth2-proxy
+- provider: oidc
+  ID: oidc=oauth2-proxy
   clientSecret: b2F1dGgyLXByb3h5LWNsaWVudC1zZWNyZXQK
   clientID: oauth2-proxy
-  azureConfig:
-    tenant: common
   oidcConfig:
+    issuerURL: https://example.com/oidc
+    skipDiscovery: true
+    jwksURL: https://example.com/oidc/jwks
     groupsClaim: groups
     emailClaim: email
     userIDClaim: email
@@ -106,7 +110,11 @@ redirect_url="http://localhost:4180/oauth2/callback"
 	}
 
 	testExpectedOptions := func() *options.Options {
-		opts, err := options.NewLegacyOptions().ToOptions()
+		legacyOpts := options.NewLegacyOptions()
+		legacyOpts.LegacyProvider.OIDCIssuerURL = "https://example.com/oidc"
+		legacyOpts.LegacyProvider.SkipOIDCDiscovery = true
+		legacyOpts.LegacyProvider.OIDCJwksURL = "https://example.com/oidc/jwks"
+		opts, err := legacyOpts.ToOptions()
 		Expect(err).ToNot(HaveOccurred())
 
 		opts.Cookie.Secret = "OQINaROshtE9TcZkNAm-5Zs2Pv3xaWytBmc5W7sPX7w="
@@ -148,14 +156,14 @@ redirect_url="http://localhost:4180/oauth2/callback"
 
 		opts.Providers = options.Providers{
 			options.Provider{
-				ID:           "google=oauth2-proxy",
-				Type:         "google",
+				ID:           "oidc=oauth2-proxy",
+				Type:         "oidc",
 				ClientSecret: "b2F1dGgyLXByb3h5LWNsaWVudC1zZWNyZXQK",
 				ClientID:     "oauth2-proxy",
-				AzureConfig: options.AzureOptions{
-					Tenant: "common",
-				},
 				OIDCConfig: options.OIDCOptions{
+					IssuerURL:         "https://example.com/oidc",
+					SkipDiscovery:     true,
+					JwksURL:           "https://example.com/oidc/jwks",
 					GroupsClaim:       "groups",
 					EmailClaim:        "email",
 					UserIDClaim:       "email",

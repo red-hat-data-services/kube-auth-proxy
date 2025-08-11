@@ -55,52 +55,6 @@ func TestNewOptions(t *testing.T) {
 	assert.Equal(t, expected, err.Error())
 }
 
-func TestGoogleGroupOptionsWithoutServiceAccountJSON(t *testing.T) {
-	o := testOptions()
-	o.Providers[0].GoogleConfig.AdminEmail = "admin@example.com"
-	err := Validate(o)
-	assert.NotEqual(t, nil, err)
-
-	expected := errorMsg([]string{
-		"missing setting: google-service-account-json or google-use-application-default-credentials"})
-	assert.Equal(t, expected, err.Error())
-}
-
-func TestGoogleGroupOptionsWithoutAdminEmail(t *testing.T) {
-	o := testOptions()
-	o.Providers[0].GoogleConfig.UseApplicationDefaultCredentials = true
-	err := Validate(o)
-	assert.NotEqual(t, nil, err)
-
-	expected := errorMsg([]string{
-		"missing setting: google-admin-email"})
-	assert.Equal(t, expected, err.Error())
-}
-
-func TestGoogleGroupOptionsWithoutGroups(t *testing.T) {
-	o := testOptions()
-	// Set admin email and application default credentials but no groups - should still require them
-	o.Providers[0].GoogleConfig.AdminEmail = "admin@example.com"
-	o.Providers[0].GoogleConfig.UseApplicationDefaultCredentials = true
-	err := Validate(o)
-	// Should pass validation since google-group is now optional
-	assert.Equal(t, nil, err)
-}
-
-func TestGoogleGroupInvalidFile(t *testing.T) {
-	o := testOptions()
-	o.Providers[0].GoogleConfig.Groups = []string{"test_group"}
-	o.Providers[0].GoogleConfig.AdminEmail = "admin@example.com"
-	o.Providers[0].GoogleConfig.ServiceAccountJSON = "file_doesnt_exist.json"
-	err := Validate(o)
-	assert.NotEqual(t, nil, err)
-
-	expected := errorMsg([]string{
-		"Google credentials file not found: file_doesnt_exist.json",
-	})
-	assert.Equal(t, expected, err.Error())
-}
-
 func TestInitializedOptions(t *testing.T) {
 	o := testOptions()
 	assert.Equal(t, nil, Validate(o))

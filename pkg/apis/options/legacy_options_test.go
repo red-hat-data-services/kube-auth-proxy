@@ -118,7 +118,7 @@ var _ = Describe("Legacy Options", func() {
 			}
 
 			opts.Providers[0].ClientID = "oauth-proxy"
-			opts.Providers[0].ID = "google=oauth-proxy"
+			opts.Providers[0].ID = "oidc=oauth-proxy"
 			opts.Providers[0].OIDCConfig.InsecureSkipNonce = true
 			opts.Providers[0].OIDCConfig.AudienceClaims = []string{"aud"}
 			opts.Providers[0].OIDCConfig.ExtraAudiences = []string{}
@@ -933,27 +933,27 @@ var _ = Describe("Legacy Options", func() {
 		}
 
 		defaultProvider := Provider{
-			ID:                 "google=" + clientID,
+			ID:                 "oidc=" + clientID,
 			ClientID:           clientID,
-			Type:               "google",
+			Type:               "oidc",
 			LoginURLParameters: defaultURLParams,
 		}
 		defaultLegacyProvider := LegacyProvider{
 			ClientID:     clientID,
-			ProviderType: "google",
+			ProviderType: "oidc",
 		}
 
 		defaultProviderWithPrompt := Provider{
-			ID:       "google=" + clientID,
+			ID:       "oidc=" + clientID,
 			ClientID: clientID,
-			Type:     "google",
+			Type:     "oidc",
 			LoginURLParameters: []LoginURLParameter{
 				{Name: "prompt", Default: []string{"switch_user"}},
 			},
 		}
 		defaultLegacyProviderWithPrompt := LegacyProvider{
 			ClientID:     clientID,
-			ProviderType: "google",
+			ProviderType: "oidc",
 			Prompt:       "switch_user",
 		}
 
@@ -961,42 +961,36 @@ var _ = Describe("Legacy Options", func() {
 			ID:                 "displayName",
 			Name:               "displayName",
 			ClientID:           clientID,
-			Type:               "google",
+			Type:               "oidc",
 			LoginURLParameters: defaultURLParams,
 		}
 
 		displayNameLegacyProvider := LegacyProvider{
 			ClientID:     clientID,
 			ProviderName: "displayName",
-			ProviderType: "google",
+			ProviderType: "oidc",
 		}
 
 		internalConfigProvider := Provider{
-			ID:       "google=" + clientID,
+			ID:       "oidc=" + clientID,
 			ClientID: clientID,
-			Type:     "google",
-			GoogleConfig: GoogleOptions{
-				AdminEmail:         "email@email.com",
-				ServiceAccountJSON: "test.json",
-				Groups:             []string{"1", "2"},
+			Type:     "oidc",
+			OIDCConfig: OIDCOptions{
+				IssuerURL: "https://example.com/oidc",
 			},
 			LoginURLParameters: defaultURLParams,
 		}
 
 		internalConfigLegacyProvider := LegacyProvider{
-			ClientID:                 clientID,
-			ProviderType:             "google",
-			GoogleAdminEmail:         "email@email.com",
-			GoogleServiceAccountJSON: "test.json",
-			GoogleGroups:             []string{"1", "2"},
+			ClientID:      clientID,
+			ProviderType:  "oidc",
+			OIDCIssuerURL: "https://example.com/oidc",
 		}
 
 		legacyConfigLegacyProvider := LegacyProvider{
-			ClientID:                 clientID,
-			ProviderType:             "google",
-			GoogleAdminEmail:         "email@email.com",
-			GoogleServiceAccountJSON: "test.json",
-			GoogleGroupsLegacy:       []string{"1", "2"},
+			ClientID:      clientID,
+			ProviderType:  "oidc",
+			OIDCIssuerURL: "https://example.com/oidc",
 		}
 		DescribeTable("convertLegacyProviders",
 			func(in *convertProvidersTableInput) {

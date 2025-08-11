@@ -36,8 +36,7 @@ var _ = Describe("Load", func() {
 		},
 
 		LegacyProvider: LegacyProvider{
-			ProviderType:          "google",
-			AzureTenant:           "common",
+			ProviderType:          "oidc",
 			ApprovalPrompt:        "force",
 			UserIDClaim:           "email",
 			OIDCEmailClaim:        "email",

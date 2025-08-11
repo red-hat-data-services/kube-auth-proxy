@@ -25,10 +25,3 @@ func IsAuthorizedInHeaderWithToken(reqHeader http.Header, token string) bool {
 func IsAuthorizedInURL(reqURL *url.URL) bool {
 	return reqURL.Query().Get("access_token") == authorizedAccessToken
 }
-
-func isAuthorizedRefreshInURLWithToken(reqURL *url.URL, token string) bool {
-	if token == "" {
-		return false
-	}
-	return reqURL.Query().Get("refresh_token") == token
-}
