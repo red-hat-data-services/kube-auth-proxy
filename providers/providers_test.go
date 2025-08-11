@@ -24,9 +24,14 @@ func TestClientSecretFileOptionFails(t *testing.T) {
 
 	providerConfig := options.Provider{
 		ID:               providerID,
-		Type:             "google",
+		Type:             "oidc",
 		ClientID:         clientID,
 		ClientSecretFile: clientSecret,
+		OIDCConfig: options.OIDCOptions{
+			IssuerURL:     "https://example.com",
+			SkipDiscovery: true,
+			JwksURL:       "https://example.com/jwks",
+		},
 	}
 
 	p, err := newProviderDataFromConfig(providerConfig)
@@ -57,9 +62,14 @@ func TestClientSecretFileOption(t *testing.T) {
 
 	providerConfig := options.Provider{
 		ID:               providerID,
-		Type:             "google",
+		Type:             "oidc",
 		ClientID:         clientID,
 		ClientSecretFile: clientSecretFileName,
+		OIDCConfig: options.OIDCOptions{
+			IssuerURL:     "https://example.com",
+			SkipDiscovery: true,
+			JwksURL:       "https://example.com/jwks",
+		},
 	}
 
 	p, err := newProviderDataFromConfig(providerConfig)
@@ -170,37 +180,16 @@ func TestScope(t *testing.T) {
 			expectedScope:   "openid",
 		},
 		{
-			name:            "github: with no scope provided",
-			configuredType:  "github",
+			name:            "oidc: with no scope provided",
+			configuredType:  "oidc",
 			configuredScope: "",
-			expectedScope:   "user:email read:org",
+			expectedScope:   "openid email profile",
 		},
 		{
-			name:            "github: with a configured scope provided",
-			configuredType:  "github",
+			name:            "oidc: with a configured scope provided",
+			configuredType:  "oidc",
 			configuredScope: "read:user read:org",
 			expectedScope:   "read:user read:org",
-		},
-		{
-			name:            "keycloak: with no scope provided and groups",
-			configuredType:  "keycloak-oidc",
-			configuredScope: "",
-			expectedScope:   "openid email profile groups",
-			allowedGroups:   []string{"foo"},
-		},
-		{
-			name:            "keycloak: with custom scope and groups",
-			configuredType:  "keycloak-oidc",
-			configuredScope: "myscope",
-			expectedScope:   "myscope",
-			allowedGroups:   []string{"foo"},
-		},
-		{
-			name:            "keycloak: with custom scope and groups scope",
-			configuredType:  "keycloak-oidc",
-			configuredScope: "myscope groups",
-			expectedScope:   "myscope groups",
-			allowedGroups:   []string{"foo"},
 		},
 	}
 

@@ -2033,6 +2033,9 @@ func baseTestOptions() *options.Options {
 	opts.Providers[0].ID = "providerID"
 	opts.Providers[0].ClientID = clientID
 	opts.Providers[0].ClientSecret = clientSecret
+	opts.Providers[0].OIDCConfig.IssuerURL = "https://example.com/oidc"
+	opts.Providers[0].OIDCConfig.SkipDiscovery = true
+	opts.Providers[0].OIDCConfig.JwksURL = "https://example.com/oidc/jwks"
 	opts.EmailDomains = []string{"*"}
 
 	// Default injected headers for legacy configuration

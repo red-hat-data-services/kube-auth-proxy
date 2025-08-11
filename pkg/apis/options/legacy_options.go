@@ -3,7 +3,6 @@ package options
 import (
 	"fmt"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -49,8 +48,7 @@ func NewLegacyOptions() *LegacyOptions {
 		},
 
 		LegacyProvider: LegacyProvider{
-			ProviderType:          "google",
-			AzureTenant:           "common",
+			ProviderType:          "oidc",
 			ApprovalPrompt:        "force",
 			UserIDClaim:           "email",
 			OIDCEmailClaim:        "email",
@@ -485,27 +483,6 @@ type LegacyProvider struct {
 	ClientSecret     string `flag:"client-secret" cfg:"client_secret"`
 	ClientSecretFile string `flag:"client-secret-file" cfg:"client_secret_file"`
 
-	KeycloakGroups                         []string `flag:"keycloak-group" cfg:"keycloak_groups"`
-	AzureTenant                            string   `flag:"azure-tenant" cfg:"azure_tenant"`
-	AzureGraphGroupField                   string   `flag:"azure-graph-group-field" cfg:"azure_graph_group_field"`
-	EntraIDAllowedTenants                  []string `flag:"entra-id-allowed-tenant" cfg:"entra_id_allowed_tenants"`
-	EntraIDFederatedTokenAuth              bool     `flag:"entra-id-federated-token-auth" cfg:"entra_id_federated_token_auth"`
-	BitbucketTeam                          string   `flag:"bitbucket-team" cfg:"bitbucket_team"`
-	BitbucketRepository                    string   `flag:"bitbucket-repository" cfg:"bitbucket_repository"`
-	GitHubOrg                              string   `flag:"github-org" cfg:"github_org"`
-	GitHubTeam                             string   `flag:"github-team" cfg:"github_team"`
-	GitHubRepo                             string   `flag:"github-repo" cfg:"github_repo"`
-	GitHubToken                            string   `flag:"github-token" cfg:"github_token"`
-	GitHubUsers                            []string `flag:"github-user" cfg:"github_users"`
-	GitLabGroup                            []string `flag:"gitlab-group" cfg:"gitlab_groups"`
-	GitLabProjects                         []string `flag:"gitlab-project" cfg:"gitlab_projects"`
-	GoogleGroupsLegacy                     []string `flag:"google-group" cfg:"google_group"`
-	GoogleGroups                           []string `flag:"google-group" cfg:"google_groups"`
-	GoogleAdminEmail                       string   `flag:"google-admin-email" cfg:"google_admin_email"`
-	GoogleServiceAccountJSON               string   `flag:"google-service-account-json" cfg:"google_service_account_json"`
-	GoogleUseApplicationDefaultCredentials bool     `flag:"google-use-application-default-credentials" cfg:"google_use_application_default_credentials"`
-	GoogleTargetPrincipal                  string   `flag:"google-target-principal" cfg:"google_target_principal"`
-
 	// These options allow for other providers besides Google, with
 	// potential overrides.
 	ProviderType                       string   `flag:"provider" cfg:"provider"`
@@ -535,7 +512,6 @@ type LegacyProvider struct {
 	ApprovalPrompt                     string   `flag:"approval-prompt" cfg:"approval_prompt"` // Deprecated by OIDC 1.0
 	UserIDClaim                        string   `flag:"user-id-claim" cfg:"user_id_claim"`
 	AllowedGroups                      []string `flag:"allowed-group" cfg:"allowed_groups"`
-	AllowedRoles                       []string `flag:"allowed-role" cfg:"allowed_roles"`
 	BackendLogoutURL                   string   `flag:"backend-logout-url" cfg:"backend_logout_url"`
 
 	AcrValues  string `flag:"acr-values" cfg:"acr_values"`
@@ -551,25 +527,11 @@ type LegacyProvider struct {
 func legacyProviderFlagSet() *pflag.FlagSet {
 	flagSet := pflag.NewFlagSet("provider", pflag.ExitOnError)
 
-	flagSet.StringSlice("keycloak-group", []string{}, "restrict logins to members of these groups (may be given multiple times)")
-	flagSet.String("azure-tenant", "common", "go to a tenant-specific or common (tenant-independent) endpoint.")
-	flagSet.String("azure-graph-group-field", "", "configures the group field to be used when building the groups list(`id` or `displayName`. Default is `id`) from Microsoft Graph(available only for v2.0 oidc url). Based on this value, the `allowed-group` config values should be adjusted accordingly. If using `id` as group field, `allowed-group` should contains groups IDs, if using `displayName` as group field, `allowed-group` should contains groups name")
-	flagSet.StringSlice("entra-id-allowed-tenant", []string{}, "list of tenants allowed for MS Entra ID multi-tenant application")
-	flagSet.Bool("entra-id-federated-token-auth", false, "enable oAuth client authentication with federated token projected by Azure Workload Identity plugin, instead of client secret.")
-	flagSet.String("bitbucket-team", "", "restrict logins to members of this team")
-	flagSet.String("bitbucket-repository", "", "restrict logins to user with access to this repository")
-	flagSet.String("github-org", "", "restrict logins to members of this organisation")
-	flagSet.String("github-team", "", "restrict logins to members of this team")
-	flagSet.String("github-repo", "", "restrict logins to collaborators of this repository")
-	flagSet.String("github-token", "", "the token to use when verifying repository collaborators (must have push access to the repository)")
-	flagSet.StringSlice("github-user", []string{}, "allow users with these usernames to login even if they do not belong to the specified org and team or collaborators (may be given multiple times)")
-	flagSet.StringSlice("gitlab-group", []string{}, "restrict logins to members of this group (may be given multiple times)")
-	flagSet.StringSlice("gitlab-project", []string{}, "restrict logins to members of this project (may be given multiple times) (eg `group/project=accesslevel`). Access level should be a value matching Gitlab access levels (see https://docs.gitlab.com/ee/api/members.html#valid-access-levels), defaulted to 20 if absent")
 	flagSet.String("client-id", "", "the OAuth Client ID: ie: \"123456.apps.googleusercontent.com\"")
 	flagSet.String("client-secret", "", "the OAuth Client Secret")
 	flagSet.String("client-secret-file", "", "the file with OAuth Client Secret")
 
-	flagSet.String("provider", "google", "OAuth provider")
+	flagSet.String("provider", "oidc", "OAuth provider")
 	flagSet.String("provider-display-name", "", "Provider display name")
 	flagSet.StringSlice("provider-ca-file", []string{}, "One or more paths to CA certificates that should be used when connecting to the provider.  If not specified, the default Go trust sources are used instead.")
 	flagSet.Bool("use-system-trust-store", false, "Determines if 'provider-ca-file' files and the system trust store are used. If set to true, your custom CA files and the system trust store are used otherwise only your custom CA files.")
@@ -604,22 +566,13 @@ func legacyProviderFlagSet() *pflag.FlagSet {
 
 	flagSet.String("user-id-claim", OIDCEmailClaim, "(DEPRECATED for `oidc-email-claim`) which claim contains the user ID")
 	flagSet.StringSlice("allowed-group", []string{}, "restrict logins to members of this group (may be given multiple times)")
-	flagSet.StringSlice("allowed-role", []string{}, "(keycloak-oidc) restrict logins to members of these roles (may be given multiple times)")
 	flagSet.String("backend-logout-url", "", "url to perform a backend logout, {id_token} can be used as placeholder for the id_token")
 
 	return flagSet
 }
 
 func legacyGoogleFlagSet() *pflag.FlagSet {
-	flagSet := pflag.NewFlagSet("google", pflag.ExitOnError)
-
-	flagSet.StringSlice("google-group", []string{}, "restrict logins to members of this google group (may be given multiple times).")
-	flagSet.String("google-admin-email", "", "the google admin to impersonate for api calls")
-	flagSet.String("google-service-account-json", "", "the path to the service account json credentials")
-	flagSet.String("google-use-application-default-credentials", "", "use application default credentials instead of service account json (i.e. GKE Workload Identity)")
-	flagSet.String("google-target-principal", "", "the target principal to impersonate when using ADC")
-
-	return flagSet
+	return pflag.NewFlagSet("google", pflag.ExitOnError)
 }
 
 func (l LegacyServer) convert() (Server, Server) {
@@ -708,69 +661,6 @@ func (l *LegacyProvider) convert() (Providers, error) {
 	// Support for legacy configuration option
 	if l.ForceCodeChallengeMethod != "" && l.CodeChallengeMethod == "" {
 		provider.CodeChallengeMethod = l.ForceCodeChallengeMethod
-	}
-
-	// This part is out of the switch section because azure has a default tenant
-	// that needs to be added from legacy options
-	provider.AzureConfig = AzureOptions{
-		Tenant:          l.AzureTenant,
-		GraphGroupField: l.AzureGraphGroupField,
-	}
-
-	switch provider.Type {
-	case "github":
-		provider.GitHubConfig = GitHubOptions{
-			Org:   l.GitHubOrg,
-			Team:  l.GitHubTeam,
-			Repo:  l.GitHubRepo,
-			Token: l.GitHubToken,
-			Users: l.GitHubUsers,
-		}
-	case "keycloak-oidc":
-		provider.KeycloakConfig = KeycloakOptions{
-			Groups: l.KeycloakGroups,
-			Roles:  l.AllowedRoles,
-		}
-	case "keycloak":
-		provider.KeycloakConfig = KeycloakOptions{
-			Groups: l.KeycloakGroups,
-		}
-	case "gitlab":
-		provider.GitLabConfig = GitLabOptions{
-			Group:    l.GitLabGroup,
-			Projects: l.GitLabProjects,
-		}
-	case "login.gov":
-		provider.LoginGovConfig = LoginGovOptions{
-			JWTKey:     l.JWTKey,
-			JWTKeyFile: l.JWTKeyFile,
-			PubJWKURL:  l.PubJWKURL,
-		}
-	case "bitbucket":
-		provider.BitbucketConfig = BitbucketOptions{
-			Team:       l.BitbucketTeam,
-			Repository: l.BitbucketRepository,
-		}
-	case "google":
-		if len(l.GoogleGroupsLegacy) != 0 && !reflect.DeepEqual(l.GoogleGroupsLegacy, l.GoogleGroups) {
-			// Log the deprecation notice
-			logger.Error(
-				"WARNING: The 'OAUTH2_PROXY_GOOGLE_GROUP' environment variable is deprecated and will likely be removed in the next major release. Use 'OAUTH2_PROXY_GOOGLE_GROUPS' instead.",
-			)
-			l.GoogleGroups = l.GoogleGroupsLegacy
-		}
-		provider.GoogleConfig = GoogleOptions{
-			Groups:                           l.GoogleGroups,
-			AdminEmail:                       l.GoogleAdminEmail,
-			ServiceAccountJSON:               l.GoogleServiceAccountJSON,
-			UseApplicationDefaultCredentials: l.GoogleUseApplicationDefaultCredentials,
-			TargetPrincipal:                  l.GoogleTargetPrincipal,
-		}
-	case "entra-id":
-		provider.MicrosoftEntraIDConfig = MicrosoftEntraIDOptions{
-			AllowedTenants:     l.EntraIDAllowedTenants,
-			FederatedTokenAuth: l.EntraIDFederatedTokenAuth,
-		}
 	}
 
 	if l.ProviderName != "" {
