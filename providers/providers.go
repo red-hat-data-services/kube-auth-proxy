@@ -39,6 +39,8 @@ func NewProvider(providerConfig options.Provider) (Provider, error) {
 	switch providerConfig.Type {
 	case options.OIDCProvider:
 		return NewOIDCProvider(providerData, providerConfig.OIDCConfig), nil
+	case options.OpenShiftProvider:
+		return NewOpenShiftProvider(providerData, providerConfig)
 	default:
 		return nil, fmt.Errorf("unknown provider type %q", providerConfig.Type)
 	}
@@ -46,6 +48,7 @@ func NewProvider(providerConfig options.Provider) (Provider, error) {
 
 func newProviderDataFromConfig(providerConfig options.Provider) (*ProviderData, error) {
 	p := &ProviderData{
+		ProviderName:            providerConfig.Name,
 		Scope:                   providerConfig.Scope,
 		ClientID:                providerConfig.ClientID,
 		ClientSecret:            providerConfig.ClientSecret,
@@ -156,6 +159,8 @@ func providerRequiresOIDCProviderVerifier(providerType options.ProviderType) (bo
 	switch providerType {
 	case options.OIDCProvider:
 		return true, nil
+	case options.OpenShiftProvider:
+		return false, nil
 	default:
 		return false, fmt.Errorf("unknown provider type: %s", providerType)
 	}

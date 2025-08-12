@@ -1032,4 +1032,110 @@ var _ = Describe("Legacy Options", func() {
 			}),
 		)
 	})
+
+	Context("OpenShift CA alias functionality", func() {
+		It("merges provider-ca-file and openshift-ca flags", func() {
+			legacyOpts := NewLegacyOptions()
+			legacyOpts.LegacyProvider.ClientID = "test-client"
+			legacyOpts.LegacyProvider.ProviderCAFiles = []string{"/path/to/ca1.crt", "/path/to/ca2.crt"}
+			legacyOpts.LegacyProvider.OpenShiftCA = []string{"/path/to/ca3.crt", "/path/to/ca4.crt"}
+
+			providers, err := legacyOpts.LegacyProvider.convert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(providers).To(HaveLen(1))
+
+			// Should have all CA files merged
+			expectedCAFiles := []string{"/path/to/ca1.crt", "/path/to/ca2.crt", "/path/to/ca3.crt", "/path/to/ca4.crt"}
+			Expect(providers[0].CAFiles).To(Equal(expectedCAFiles))
+		})
+
+		It("works with only openshift-ca flag", func() {
+			legacyOpts := NewLegacyOptions()
+			legacyOpts.LegacyProvider.ClientID = "test-client"
+			legacyOpts.LegacyProvider.OpenShiftCA = []string{"/path/to/openshift-ca.crt"}
+
+			providers, err := legacyOpts.LegacyProvider.convert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(providers).To(HaveLen(1))
+
+			expectedCAFiles := []string{"/path/to/openshift-ca.crt"}
+			Expect(providers[0].CAFiles).To(Equal(expectedCAFiles))
+		})
+
+		It("works with only provider-ca-file flag", func() {
+			legacyOpts := NewLegacyOptions()
+			legacyOpts.LegacyProvider.ClientID = "test-client"
+			legacyOpts.LegacyProvider.ProviderCAFiles = []string{"/path/to/provider-ca.crt"}
+
+			providers, err := legacyOpts.LegacyProvider.convert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(providers).To(HaveLen(1))
+
+			expectedCAFiles := []string{"/path/to/provider-ca.crt"}
+			Expect(providers[0].CAFiles).To(Equal(expectedCAFiles))
+		})
+
+		It("deduplicates CA files while preserving order", func() {
+			legacyOpts := NewLegacyOptions()
+			legacyOpts.LegacyProvider.ClientID = "test-client"
+			legacyOpts.LegacyProvider.ProviderCAFiles = []string{
+				"/path/to/ca1.crt",
+				"/path/to/ca2.crt",
+				"/path/to/ca1.crt", // duplicate
+			}
+			legacyOpts.LegacyProvider.OpenShiftCA = []string{
+				"/path/to/ca2.crt", // duplicate from ProviderCAFiles
+				"/path/to/ca3.crt",
+				"/path/to/ca3.crt", // duplicate within OpenShiftCA
+			}
+
+			providers, err := legacyOpts.LegacyProvider.convert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(providers).To(HaveLen(1))
+
+			// Should deduplicate while preserving first occurrence order
+			expectedCAFiles := []string{"/path/to/ca1.crt", "/path/to/ca2.crt", "/path/to/ca3.crt"}
+			Expect(providers[0].CAFiles).To(Equal(expectedCAFiles))
+		})
+	})
+
+	Context("mergeUniqueStrings utility function", func() {
+		It("handles empty input", func() {
+			result := mergeUniqueStrings()
+			Expect(result).To(BeNil())
+		})
+
+		It("handles single slice", func() {
+			result := mergeUniqueStrings([]string{"a", "b", "a"})
+			Expect(result).To(Equal([]string{"a", "b"}))
+		})
+
+		It("merges multiple slices with deduplication", func() {
+			slice1 := []string{"a", "b", "c"}
+			slice2 := []string{"b", "d", "a"}
+			slice3 := []string{"e", "c", "f"}
+
+			result := mergeUniqueStrings(slice1, slice2, slice3)
+
+			// Should preserve order of first occurrence
+			expected := []string{"a", "b", "c", "d", "e", "f"}
+			Expect(result).To(Equal(expected))
+		})
+
+		It("handles empty slices in the mix", func() {
+			slice1 := []string{"a", "b"}
+			slice2 := []string{}
+			slice3 := []string{"c", "a"}
+
+			result := mergeUniqueStrings(slice1, slice2, slice3)
+
+			expected := []string{"a", "b", "c"}
+			Expect(result).To(Equal(expected))
+		})
+
+		It("returns nil for all empty slices", func() {
+			result := mergeUniqueStrings([]string{}, []string{}, []string{})
+			Expect(result).To(BeNil())
+		})
+	})
 })
