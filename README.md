@@ -2,8 +2,6 @@
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-![kube-auth-proxy](docs/static/img/logos/OAuth2_Proxy_horizontal.svg)
-
 kube-auth-proxy is a focused, FIPS-compliant authentication proxy designed specifically for OpenShift Data Hub (ODH) and Red Hat OpenShift AI (RHOAI) environments. It provides secure authentication through both external OIDC providers and OpenShift's internal OAuth service, serving as a drop-in replacement for existing oauth-proxy sidecars for authentication purposes only.
 
 This project is derived from oauth2-proxy but has been streamlined to support only the authentication methods required for enterprise Kubernetes environments, with a strong emphasis on FIPS compliance and compatibility with existing ODH/RHOAI deployments.
