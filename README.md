@@ -30,7 +30,7 @@ Once authenticated, the proxy forwards requests to upstream applications with ap
 
 #### Container Images
 
-Container images are currently under development (TBD). Once available, kube-auth-proxy will be distributed as container images built for multiple architectures:
+**⚠️ Container images are currently under development (TBD).** Once available, kube-auth-proxy will be distributed as container images built for multiple architectures:
 
 - **Standard Images**: Based on distroless for minimal attack surface
 - **FIPS Images**: FIPS-compliant builds for enterprise environments
