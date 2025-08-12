@@ -1,86 +1,158 @@
-[![Continuous Integration](https://github.com/oauth2-proxy/oauth2-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/oauth2-proxy/oauth2-proxy/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/oauth2-proxy/oauth2-proxy)](https://goreportcard.com/report/github.com/oauth2-proxy/oauth2-proxy)
-[![GoDoc](https://godoc.org/github.com/oauth2-proxy/oauth2-proxy?status.svg)](https://godoc.org/github.com/oauth2-proxy/oauth2-proxy)
+# kube-auth-proxy
+
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Maintainability](https://api.codeclimate.com/v1/badges/a58ff79407212e2beacb/maintainability)](https://codeclimate.com/github/oauth2-proxy/oauth2-proxy/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/a58ff79407212e2beacb/test_coverage)](https://codeclimate.com/github/oauth2-proxy/oauth2-proxy/test_coverage)
 
-![OAuth2 Proxy](docs/static/img/logos/OAuth2_Proxy_horizontal.svg)
+![kube-auth-proxy](docs/static/img/logos/OAuth2_Proxy_horizontal.svg)
 
-OAuth2-Proxy is a flexible, open-source tool that can act as either a standalone reverse proxy or a middleware component integrated into existing reverse proxy or load balancer setups. It provides a simple and secure way to protect your web applications with OAuth2 / OIDC authentication. As a reverse proxy, it intercepts requests to your application and redirects users to an OAuth2 provider for authentication. As a middleware, it can be seamlessly integrated into your existing infrastructure to handle authentication for multiple applications.
+kube-auth-proxy is a focused, FIPS-compliant authentication proxy designed specifically for OpenShift Data Hub (ODH) and Red Hat OpenShift AI (RHOAI) environments. It provides secure authentication through both external OIDC providers and OpenShift's internal OAuth service, serving as a drop-in replacement for existing oauth-proxy sidecars for authentication purposes only.
 
-OAuth2-Proxy supports a lot of OAuth2 as well as OIDC providers. Either through a generic OIDC client or a specific implementation for Google, Microsoft Entra ID, GitHub, login.gov and others. Through specialised provider implementations oauth2-proxy can extract more details about the user like preferred usernames and groups. Those details can then be forwarded as HTTP headers to your upstream applications.
+This project is derived from oauth2-proxy but has been streamlined to support only the authentication methods required for enterprise Kubernetes environments, with a strong emphasis on FIPS compliance and compatibility with existing ODH/RHOAI deployments.
 
-![Simplified Architecture](docs/static/img/simplified-architecture.svg)
+## Key Features
+
+- **OIDC Authentication**: Support for any standards-compliant OIDC provider
+- **OpenShift OAuth Integration**: Native support for OpenShift's internal OAuth service
+- **FIPS Compliance**: Built with FIPS-compliant dependencies and compilation flags
+- **Drop-in Compatibility**: Designed to replace existing oauth-proxy sidecars for authentication without configuration changes
+- **Envoy ext_authz Support**: Compatible with Envoy's external authorization framework
+- **Streamlined Codebase**: Focused implementation with unnecessary providers removed
+
+## Architecture
+
+kube-auth-proxy acts as a reverse proxy that intercepts requests to your applications and handles authentication through either:
+
+1. **External OIDC Providers**: Standard OIDC flow with configurable providers
+2. **OpenShift OAuth**: Integration with OpenShift's built-in authentication system
+
+Once authenticated, the proxy forwards requests to upstream applications with appropriate headers containing user identity and authorization information.
 
 ## Get Started
 
-OAuth2-Proxy's [Installation Docs](https://oauth2-proxy.github.io/oauth2-proxy/installation) cover how to install and configure your setup. Additionally you can take a further look at the [example setup files](https://github.com/oauth2-proxy/oauth2-proxy/tree/master/contrib/local-environment).
+### Installation
 
-## Releases
+#### Container Images
 
-### Binaries
-We publish oauth2-proxy as compiled binaries on GitHub for all major architectures as well as more exotic ones like `ppc64le` as well as `s390x`.
+Container images are currently under development (TBD). Once available, kube-auth-proxy will be distributed as container images built for multiple architectures:
 
-Check out the [latest release](https://github.com/oauth2-proxy/oauth2-proxy/releases/latest).
+- **Standard Images**: Based on distroless for minimal attack surface
+- **FIPS Images**: FIPS-compliant builds for enterprise environments
 
-### Images
+```bash
+# Standard image (TBD)
+# podman pull quay.io/opendatahub-io/kube-auth-proxy:latest
 
-From `v7.6.0` and up the base image has been changed from Alpine to [GoogleContainerTools/distroless](https://github.com/GoogleContainerTools/distroless).
-This image comes with even fewer installed dependencies and thus should improve security. The image therefore is also slightly smaller than Alpine.
-For debugging purposes (and those who really need it. e.g. `armv6`) we still provide images based on Alpine. The tags of these images are suffixed with `-alpine`.
+# FIPS-compliant image (TBD)
+# podman pull quay.io/opendatahub-io/kube-auth-proxy:latest-fips
+```
 
-Since 2023-11-18 we build nightly images directly from the `master` branch and provide them at `quay.io/oauth2-proxy/oauth2-proxy-nightly`.
-These images are considered unstable and therefore should **NOT** be used for production purposes unless you know what you're doing.
+#### Binary Releases
 
-## Sponsors
+Pre-compiled binaries are available for all major architectures on the [releases page](https://github.com/opendatahub-io/kube-auth-proxy/releases/latest).
 
-![Microsoft](https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg)
-Microsoft Azure credits for open source projects
+### Configuration
 
-Would you like to sponsor the project then please contact us at [sponsors@oauth2-proxy.dev](mailto:sponsors@oauth2-proxy.dev)
+kube-auth-proxy supports configuration through command-line arguments and environment variables. It maintains compatibility with oauth-proxy argument formats for seamless migration.
 
-## Getting Involved
-[![Slack](https://img.shields.io/badge/slack-Gopher_%23oauth2--proxy-red?logo=slack)](https://gophers.slack.com/archives/CM2RSS25N)
+#### OIDC Provider Example
 
-Join the #oauth2-proxy [Slack channel](https://gophers.slack.com/archives/CM2RSS25N) to chat with other users of oauth2-proxy or reach out to the maintainers directly. Use the [public invite link](https://invite.slack.golangbridge.org/) to get an invite for the Gopher Slack space.
+```bash
+kube-auth-proxy \
+  --provider=oidc \
+  --oidc-issuer-url=https://your-oidc-provider.com \
+  --client-id=your-client-id \
+  --client-secret=your-client-secret \
+  --upstream=http://your-app:8080 \
+  --http-address=0.0.0.0:4180
+```
 
-OAuth2-Proxy is a community-driven project. We rely on the contribut️ions of our users to continually improve it. While review times can vary, we appreciate your patience and understanding. As a volunteer-driven project, we strive to keep this project stable and might take longer to merge changes.
+#### OpenShift OAuth Example
 
-If you want to contribute to the project. Please see our [Contributing](https://oauth2-proxy.github.io/oauth2-proxy/community/contribution) guide.
+```bash
+kube-auth-proxy \
+  --provider=openshift \
+  --openshift-service-ca=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt \
+  --upstream=http://your-app:8080 \
+  --http-address=0.0.0.0:4180
+```
 
-Who uses OAuth2-Proxy? Have a look at our new [ADOPTERS](ADOPTERS.md) file and
-feel free to open a PR to add your organisation.
+For detailed configuration options, see the [Configuration Documentation](docs/configuration.md).
 
-Thanks to all the people who already contributed ❤
+## Supported Providers
 
-<a href="https://github.com/oauth2-proxy/oauth2-proxy/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=oauth2-proxy/oauth2-proxy&columns=15&max=75" />
-  <img src="https://img.shields.io/github/contributors/oauth2-proxy/oauth2-proxy" />
-</a>
+kube-auth-proxy supports the following authentication providers:
 
-Made with [contrib.rocks](https://contrib.rocks).
+- **OIDC**: Any standards-compliant OpenID Connect provider
+- **OpenShift OAuth**: OpenShift's built-in authentication system
+
+All other authentication providers have been intentionally removed to maintain focus and reduce the attack surface.
+
+## FIPS Compliance
+
+kube-auth-proxy is built with FIPS compliance as a primary requirement:
+
+- **FIPS-compliant builds**: Available through `Dockerfile.redhat`
+- **Automated validation**: CI/CD pipeline includes FIPS compliance checks using [check-payload](https://github.com/openshift/check-payload)
+- **Secure dependencies**: Only FIPS-approved cryptographic libraries
+
+## Migration from oauth-proxy
+
+kube-auth-proxy is designed as a drop-in replacement for oauth-proxy authentication in ODH/RHOAI environments:
+
+1. **Argument Compatibility**: Supports both oauth2-proxy and oauth-proxy argument formats
+2. **Header Compatibility**: Maintains the same upstream headers as oauth-proxy
+3. **Behavior Compatibility**: Preserves expected authentication flows and responses
+
+**Note**: This proxy handles authentication (authn) only. It does not include RBAC or SubjectAccessReview (SAR) authorization capabilities.
+
+## Development
+
+### Building from Source
+
+```bash
+# Standard build
+make build
+
+# FIPS-compliant build
+make build-fips
+```
+
+### Running Tests
+
+```bash
+make test
+```
+
+### Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Code style and conventions
+- Testing requirements
+- Submission process
 
 ## Security
 
-If you believe you have found a vulnerability within OAuth2 Proxy or any of its dependencies, please do **NOT** open an issue or PR on GitHub, please do **NOT** post any details publicly.
+If you believe you have found a security vulnerability, please do **NOT** open an issue or PR. Instead, report it privately by emailing the maintainers listed in the [MAINTAINERS](MAINTAINERS.md) file.
 
-Security disclosures **MUST** be done in private. If you have found an issue that you would like to bring to the attention of the maintainers, please compose an email and send it to the list of people listed in our [MAINTAINERS](MAINTAINERS) file.
-
-For more details read our full [Security Docs](https://oauth2-proxy.github.io/oauth2-proxy/community/security#security-disclosures)
-
-### Security Notice for v6.0.0 and older
-
-If you are running a version older than v6.0.0 we **strongly recommend** to the current version.
-
-See [open redirect vulnerability](https://github.com/oauth2-proxy/oauth2-proxy/security/advisories/GHSA-5m6c-jp6f-2vcv) for details.
+For more details, see our [Security Policy](SECURITY.md).
 
 ## Repository History
 
-**2018-11-27:** This repository was forked from [bitly/OAuth2_Proxy](https://github.com/bitly/oauth2_proxy). Versions v3.0.0 and up are from this fork and will have diverged from any changes in the original fork. A list of changes can be seen in the [CHANGELOG](CHANGELOG.md).
+**2025-08-11:** This repository was created as a disconnected fork of [oauth2-proxy/oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) specifically for OpenShift Data Hub and Red Hat OpenShift AI environments. The project has been streamlined to support only OIDC and OpenShift OAuth providers, with a focus on FIPS compliance and enterprise requirements.
 
-**2020-03-29:** This project was formerly hosted as `pusher/oauth2_proxy` but has been renamed to `oauth2-proxy/oauth2-proxy`. Going forward, all images shall be available at `quay.io/oauth2-proxy/oauth2-proxy` and binaries will be named `oauth2-proxy`.
+**Original oauth2-proxy History:**
+
+- **2020-03-29:** oauth2-proxy was renamed from `pusher/oauth2_proxy` to `oauth2-proxy/oauth2-proxy`
+- **2018-11-27:** oauth2-proxy was forked from [bitly/OAuth2_Proxy](https://github.com/bitly/oauth2_proxy)
+
+This fork maintains the MIT license and acknowledges the excellent foundation provided by the oauth2-proxy community while serving the specific needs of the OpenShift ecosystem.
 
 ## License
 
-OAuth2-Proxy is distributed under [The MIT License](LICENSE).
+kube-auth-proxy is distributed under [The MIT License](LICENSE), maintaining compatibility with its oauth2-proxy origins.
+
+## Acknowledgments
+
+This project builds upon the excellent work of the [oauth2-proxy community](https://github.com/oauth2-proxy/oauth2-proxy). We gratefully acknowledge their contributions to the open-source authentication proxy ecosystem.
+
+Special thanks to the OpenShift and Red Hat communities for their guidance on enterprise authentication requirements and FIPS compliance standards.
