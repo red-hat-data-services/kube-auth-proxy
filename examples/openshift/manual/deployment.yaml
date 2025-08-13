@@ -1,0 +1,220 @@
+# kube-auth-proxy OpenShift OAuth Deployment - Manual OAuth Client
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+  labels:
+    app: kube-auth-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-auth-proxy
+  template:
+    metadata:
+      labels:
+        app: kube-auth-proxy
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kube-auth-proxy
+      containers:
+      - name: kube-auth-proxy
+        image: quay.io/opendatahub/kube-auth-proxy:<version-or-digest>
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        ports:
+        - containerPort: 4180
+          name: http
+        env:
+        - name: OAUTH2_PROXY_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              key: provider
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              key: client-id
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: client-secret
+              name: kube-auth-proxy-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: cookie-secret
+              name: kube-auth-proxy-secret
+        - name: OAUTH2_PROXY_HTTP_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              key: http-address
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_UPSTREAMS
+          valueFrom:
+            configMapKeyRef:
+              key: upstreams
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_EMAIL_DOMAINS
+          valueFrom:
+            configMapKeyRef:
+              key: email-domains
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_REDIRECT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: redirect-url
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_SCOPE
+          valueFrom:
+            configMapKeyRef:
+              key: scope
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_BASIC_AUTH
+          valueFrom:
+            configMapKeyRef:
+              key: pass-basic-auth
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_ACCESS_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              key: pass-access-token
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_USER_HEADERS
+          valueFrom:
+            configMapKeyRef:
+              key: pass-user-headers
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_HOST_HEADER
+          valueFrom:
+            configMapKeyRef:
+              key: pass-host-header
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_COOKIE_EXPIRE
+          valueFrom:
+            configMapKeyRef:
+              key: cookie-expire
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_COOKIE_REFRESH
+          valueFrom:
+            configMapKeyRef:
+              key: cookie-refresh
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_USE_SYSTEM_TRUST_STORE
+          valueFrom:
+            configMapKeyRef:
+              key: use-system-trust-store
+              name: kube-auth-proxy-config
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+  labels:
+    app: kube-auth-proxy
+spec:
+  selector:
+    app: kube-auth-proxy
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4180
+
+---
+# Service account for running the proxy (not used for OAuth auto-detection in manual approach)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+
+---
+# Example upstream application for testing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-app
+  namespace: default
+  labels:
+    app: example-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-app
+  template:
+    metadata:
+      labels:
+        app: example-app
+    spec:
+      containers:
+      - name: example-app
+        image: hashicorp/http-echo:latest
+        args:
+        - -text=Hello from OpenShift authenticated app!
+        - -listen=:8080
+        ports:
+        - containerPort: 8080
+          name: http
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-app
+  namespace: default
+  labels:
+    app: example-app
+spec:
+  selector:
+    app: example-app
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+
+---
+# OpenShift Route to expose the application
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+  labels:
+    app: kube-auth-proxy
+spec:
+  # Replace with your desired hostname
+  host: your-app.apps.cluster.example.com
+  to:
+    kind: Service
+    name: kube-auth-proxy
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,57 @@
+# OpenShift OAuth Configuration for kube-auth-proxy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-auth-proxy-config
+  namespace: default
+data:
+  # OpenShift OAuth Provider
+  provider: "openshift"
+  
+  # OAuth Client ID - auto-generated from service account when using auto-detection
+  # Format: system:serviceaccount:<namespace>:<service-account-name>
+  client-id: "system:serviceaccount:default:kube-auth-proxy"
+  
+  # Service account for auto-detection
+  openshift-service-account: "kube-auth-proxy"
+  
+  # Client secret file - points to service account token
+  client-secret-file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  
+  # Proxy Settings
+  http-address: "0.0.0.0:4180"
+  upstreams: "http://example-app:8080"
+  
+  # Email domains (configure as needed)
+  email-domains: "*"
+  
+  # Redirect URI - replace with your actual domain
+  redirect-url: "https://your-app.apps.cluster.example.com/oauth2/callback"
+  
+  # OpenShift OAuth scope
+  scope: "user:info"
+  
+  # Header forwarding
+  pass-basic-auth: "false"
+  pass-access-token: "true"
+  pass-user-headers: "true"
+  pass-host-header: "true"
+  
+  # Session settings
+  cookie-expire: "1h"
+  cookie-refresh: "30m"
+  
+  # TLS Configuration - uses automatic service account CA
+  use-system-trust-store: "true"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-auth-proxy-secret
+  namespace: default
+type: Opaque
+stringData:
+  # Generate a random 32-byte base64-encoded string for cookie encryption
+  # Example: openssl rand -base64 32
+  cookie-secret: "REPLACE-WITH-BASE64-ENCODED-32-BYTE-SECRET"

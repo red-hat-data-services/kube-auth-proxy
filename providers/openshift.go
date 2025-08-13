@@ -96,7 +96,7 @@ func NewOpenShiftProvider(p *ProviderData, cfg options.Provider) (*OpenShiftProv
 	// Auto-detect service account credentials if service account is specified
 	// and no explicit credentials are provided
 	if cfg.ServiceAccount != "" && p.ClientID == "" && p.ClientSecret == "" {
-		clientID, clientSecret := loadServiceAccountDefaults(cfg.ServiceAccount)
+		clientID, clientSecret := loadServiceAccountDefaults(cfg.ServiceAccount, p.ClientSecretFile)
 		if clientID != "" {
 			p.ClientID = clientID
 		}
@@ -484,7 +484,8 @@ func getKubeAPIURLWithPath(path string) string {
 // loadServiceAccountDefaults loads OAuth client defaults from the mounted service account.
 // This function reads the service account namespace and token files that are automatically
 // mounted by Kubernetes when the proxy runs as a pod.
-func loadServiceAccountDefaults(serviceAccount string) (clientID, clientSecret string) {
+// If clientSecretFile is provided, it uses that path instead of the default service account token path.
+func loadServiceAccountDefaults(serviceAccount, clientSecretFile string) (clientID, clientSecret string) {
 	if serviceAccount == "" {
 		return "", ""
 	}
@@ -496,10 +497,21 @@ func loadServiceAccountDefaults(serviceAccount string) (clientID, clientSecret s
 		logger.Printf("Auto-detected client-id from service account: %s", clientID)
 	}
 
-	// Read token from mounted service account
-	if data, err := os.ReadFile(serviceAccountTokenPath); err == nil && len(data) > 0 {
+	// Determine which token file to use
+	tokenPath := serviceAccountTokenPath
+	if clientSecretFile != "" {
+		tokenPath = clientSecretFile
+		logger.Printf("Using custom client-secret-file: %s", tokenPath)
+	} else {
+		logger.Printf("Using default service account token: %s", tokenPath)
+	}
+
+	// Read token from the determined path
+	if data, err := os.ReadFile(tokenPath); err == nil && len(data) > 0 {
 		clientSecret = strings.TrimSpace(string(data))
-		logger.Printf("Auto-detected client-secret from service account token: %s", serviceAccountTokenPath)
+		logger.Printf("Auto-detected client-secret from: %s", tokenPath)
+	} else {
+		logger.Errorf("Failed to read client secret from %s: %v", tokenPath, err)
 	}
 
 	return clientID, clientSecret

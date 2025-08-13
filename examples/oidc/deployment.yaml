@@ -1,0 +1,193 @@
+# kube-auth-proxy OIDC Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+  labels:
+    app: kube-auth-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-auth-proxy
+  template:
+    metadata:
+      labels:
+        app: kube-auth-proxy
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+      - name: kube-auth-proxy
+        image: quay.io/opendatahub/kube-auth-proxy:<version-or-digest>
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        ports:
+        - containerPort: 4180
+          name: http
+        env:
+        - name: OAUTH2_PROXY_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              key: provider
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+          valueFrom:
+            configMapKeyRef:
+              key: oidc-issuer-url
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              key: client-id
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: client-secret
+              name: kube-auth-proxy-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: cookie-secret
+              name: kube-auth-proxy-secret
+        - name: OAUTH2_PROXY_SCOPE
+          valueFrom:
+            configMapKeyRef:
+              key: scope
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_HTTP_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              key: http-address
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_UPSTREAMS
+          valueFrom:
+            configMapKeyRef:
+              key: upstreams
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_EMAIL_DOMAINS
+          valueFrom:
+            configMapKeyRef:
+              key: email-domains
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_REDIRECT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: redirect-url
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_OIDC_GROUPS_CLAIM
+          valueFrom:
+            configMapKeyRef:
+              key: oidc-groups-claim
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_OIDC_EMAIL_CLAIM
+          valueFrom:
+            configMapKeyRef:
+              key: oidc-email-claim
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_BASIC_AUTH
+          valueFrom:
+            configMapKeyRef:
+              key: pass-basic-auth
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_ACCESS_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              key: pass-access-token
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_USER_HEADERS
+          valueFrom:
+            configMapKeyRef:
+              key: pass-user-headers
+              name: kube-auth-proxy-config
+        - name: OAUTH2_PROXY_PASS_HOST_HEADER
+          valueFrom:
+            configMapKeyRef:
+              key: pass-host-header
+              name: kube-auth-proxy-config
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-auth-proxy
+  namespace: default
+  labels:
+    app: kube-auth-proxy
+spec:
+  selector:
+    app: kube-auth-proxy
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4180
+
+---
+# Example upstream application for testing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-app
+  namespace: default
+  labels:
+    app: example-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-app
+  template:
+    metadata:
+      labels:
+        app: example-app
+    spec:
+      containers:
+      - name: example-app
+        image: hashicorp/http-echo:latest
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        args:
+        - -text=Hello from authenticated app!
+        - -listen=:8080
+        ports:
+        - containerPort: 8080
+          name: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-app
+  namespace: default
+  labels:
+    app: example-app
+spec:
+  selector:
+    app: example-app
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
