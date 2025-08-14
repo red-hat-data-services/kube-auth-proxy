@@ -514,6 +514,10 @@ type LegacyProvider struct {
 	AllowedGroups                      []string `flag:"allowed-group" cfg:"allowed_groups"`
 	BackendLogoutURL                   string   `flag:"backend-logout-url" cfg:"backend_logout_url"`
 
+	// OpenShift-specific options
+	OpenShiftServiceAccount string   `flag:"openshift-service-account" cfg:"openshift_service_account"`
+	OpenShiftCA             []string `flag:"openshift-ca" cfg:"openshift_ca"`
+
 	AcrValues  string `flag:"acr-values" cfg:"acr_values"`
 	JWTKey     string `flag:"jwt-key" cfg:"jwt_key"`
 	JWTKeyFile string `flag:"jwt-key-file" cfg:"jwt_key_file"`
@@ -534,6 +538,8 @@ func legacyProviderFlagSet() *pflag.FlagSet {
 	flagSet.String("provider", "oidc", "OAuth provider")
 	flagSet.String("provider-display-name", "", "Provider display name")
 	flagSet.StringSlice("provider-ca-file", []string{}, "One or more paths to CA certificates that should be used when connecting to the provider.  If not specified, the default Go trust sources are used instead.")
+	flagSet.StringSlice("openshift-ca", []string{}, "(DEPRECATED: use --provider-ca-file) Path to CA certificate file for OpenShift OAuth server")
+	flagSet.String("openshift-service-account", "", "OpenShift service account name for auto-detecting OAuth client credentials")
 	flagSet.Bool("use-system-trust-store", false, "Determines if 'provider-ca-file' files and the system trust store are used. If set to true, your custom CA files and the system trust store are used otherwise only your custom CA files.")
 	flagSet.String("oidc-issuer-url", "", "OpenID Connect issuer URL (ie: https://accounts.google.com)")
 	flagSet.Bool("insecure-oidc-allow-unverified-email", false, "Don't fail if an email address in an id_token is not verified")
@@ -619,15 +625,50 @@ func (l LegacyServer) convert() (Server, Server) {
 	return appServer, metricsServer
 }
 
+// mergeUniqueStrings merges multiple string slices, deduplicating entries while preserving order.
+// The first occurrence of each string is kept, subsequent duplicates are ignored.
+func mergeUniqueStrings(slices ...[]string) []string {
+	if len(slices) == 0 {
+		return nil
+	}
+
+	// Calculate total capacity for worst-case scenario
+	totalLen := 0
+	for _, slice := range slices {
+		totalLen += len(slice)
+	}
+
+	if totalLen == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, totalLen)
+	result := make([]string, 0, totalLen)
+
+	for _, slice := range slices {
+		for _, item := range slice {
+			if _, exists := seen[item]; !exists {
+				seen[item] = struct{}{}
+				result = append(result, item)
+			}
+		}
+	}
+
+	return result
+}
+
 func (l *LegacyProvider) convert() (Providers, error) {
 	providers := Providers{}
+
+	// Merge ProviderCAFiles and OpenShiftCA for compatibility
+	allCAFiles := mergeUniqueStrings(l.ProviderCAFiles, l.OpenShiftCA)
 
 	provider := Provider{
 		ClientID:                 l.ClientID,
 		ClientSecret:             l.ClientSecret,
 		ClientSecretFile:         l.ClientSecretFile,
 		Type:                     ProviderType(l.ProviderType),
-		CAFiles:                  l.ProviderCAFiles,
+		CAFiles:                  allCAFiles,
 		UseSystemTrustStore:      l.UseSystemTrustStore,
 		LoginURL:                 l.LoginURL,
 		RedeemURL:                l.RedeemURL,
@@ -640,6 +681,7 @@ func (l *LegacyProvider) convert() (Providers, error) {
 		CodeChallengeMethod:      l.CodeChallengeMethod,
 		BackendLogoutURL:         l.BackendLogoutURL,
 		AuthRequestResponseMode:  l.AuthRequestResponseMode,
+		ServiceAccount:           l.OpenShiftServiceAccount,
 	}
 
 	// This part is out of the switch section for all providers that support OIDC

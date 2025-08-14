@@ -1,0 +1,13 @@
+# OpenShift OAuth Client Configuration - Manual Approach
+# This registers your application with OpenShift's OAuth server
+# The client-id in your config must match metadata.name exactly
+apiVersion: oauth.openshift.io/v1
+kind: OAuthClient
+metadata:
+  name: kube-auth-proxy  # ← This becomes your client-id
+grantMethod: auto
+redirectURIs:
+# Replace with your actual application domain
+- "https://your-app.apps.cluster.example.com/oauth2/callback"
+# Generate a secure random secret and use the same value in config.yaml
+secret: "REPLACE-WITH-SECURE-RANDOM-SECRET"

@@ -76,6 +76,10 @@ type Provider struct {
 
 	// URL to call to perform backend logout, `{id_token}` would be replaced by the actual `id_token` if available in the session
 	BackendLogoutURL string `json:"backendLogoutURL"`
+
+	// OpenShift-specific options
+	// ServiceAccount is the name of the OpenShift service account to use for auto-detecting OAuth client credentials
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 // ProviderType is used to enumerate the different provider type options
@@ -85,6 +89,8 @@ type ProviderType string
 const (
 	// OIDCProvider is the provider type for OIDC
 	OIDCProvider ProviderType = "oidc"
+	// OpenShiftProvider is the provider type for OpenShift OAuth
+	OpenShiftProvider ProviderType = "openshift"
 )
 
 type OIDCOptions struct {
