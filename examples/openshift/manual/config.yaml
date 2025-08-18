@@ -22,7 +22,7 @@ data:
   redirect-url: "https://your-app.apps.cluster.example.com/oauth2/callback"
   
   # OpenShift OAuth scope
-  scope: "user:info"
+  scope: "user:full"
   
   # Header forwarding
   pass-basic-auth: "false"

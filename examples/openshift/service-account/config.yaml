@@ -29,6 +29,7 @@ data:
   redirect-url: "https://your-app.apps.cluster.example.com/oauth2/callback"
   
   # OpenShift OAuth scope
+  # For more: https://docs.redhat.com/en/documentation/openshift_container_platform/4.9/html/authentication_and_authorization/using-service-accounts-as-oauth-client#service-accounts-as-oauth-clients_using-service-accounts-as-oauth-client
   scope: "user:info"
   
   # Header forwarding

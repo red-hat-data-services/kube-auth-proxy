@@ -59,3 +59,5 @@ curl -H "Authorization: Bearer $X_FORWARDED_ACCESS_TOKEN" \
 curl -H "Authorization: Bearer $X_FORWARDED_ACCESS_TOKEN" \
      https://api.cluster.example.com/apis/project.openshift.io/v1/projects
 ```
+
+> **Note**: Service account-based OAuth clients have limited scopes and can only access resources within their namespace or specific user information. Manual OAuth clients may have broader scope access depending on configuration.
