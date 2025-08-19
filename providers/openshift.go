@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/bitly/go-simplejson"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
+	"github.com/opendatahub-io/kube-auth-proxy/v1/pkg/apis/options"
+	"github.com/opendatahub-io/kube-auth-proxy/v1/pkg/apis/sessions"
+	"github.com/opendatahub-io/kube-auth-proxy/v1/pkg/logger"
 )
 
 const (
@@ -73,10 +73,15 @@ func NewOpenShiftProvider(p *ProviderData, cfg options.Provider) (*OpenShiftProv
 		name = p.ProviderName
 	}
 
+	scope := openShiftDefaultScope
+	if p.Scope != "" {
+		scope = p.Scope
+	}
+
 	// Set provider defaults
 	defaults := providerDefaults{
 		name:        name,
-		scope:       openShiftDefaultScope,
+		scope:       scope,
 		loginURL:    nil,
 		redeemURL:   nil,
 		validateURL: nil,
