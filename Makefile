@@ -56,6 +56,10 @@ build: validate-go-version clean $(BINARY) ## Build and create kube-auth-proxy b
 $(BINARY):
 	CGO_ENABLED=0 $(GO) build -a -installsuffix cgo -ldflags="-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=${VERSION}" -o $@ github.com/opendatahub-io/kube-auth-proxy/v1
 
+.PHONY: build-fips
+build-fips: validate-go-version clean ## Build FIPS-compliant kube-auth-proxy binary
+	CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime $(GO) build -a -tags strictfipsruntime -ldflags="-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=${VERSION}" -o $(BINARY) github.com/opendatahub-io/kube-auth-proxy/v1
+
 DOCKER_BUILDX_COMMON_ARGS     ?= --build-arg BUILD_IMAGE=docker.io/library/golang:${GO_MOD_VERSION}-bookworm --build-arg VERSION=${VERSION}
 
 DOCKER_BUILD_PLATFORM         ?= linux/amd64,linux/arm64,linux/ppc64le,linux/arm/v7,linux/s390x
@@ -82,6 +86,10 @@ build-distroless: ## Build multi architecture distroless based docker image
 .PHONY: build-alpine
 build-alpine: ## Build multi architecture alpine based docker image
 	$(DOCKER_BUILDX_X_PLATFORM_ALPINE) -t $(REGISTRY)/$(REPOSITORY):latest-alpine -t $(REGISTRY)/$(REPOSITORY):${VERSION}-alpine .
+
+.PHONY: build-docker-fips
+build-docker-fips: ## Build FIPS-compliant docker image using Dockerfile.redhat
+	$(DOCKER_BUILDX_X_PLATFORM) -f Dockerfile.redhat -t $(REGISTRY)/$(REPOSITORY):fips -t $(REGISTRY)/$(REPOSITORY):${VERSION}-fips .
 
 .PHONY: build-docker-all
 build-docker-all: build-docker ## Build docker images for all supported architectures in both flavours (distroless / alpine)
