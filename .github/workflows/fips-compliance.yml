@@ -1,0 +1,55 @@
+name: FIPS Compliance Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fips-compliance:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build FIPS-compliant image
+      run: |
+        docker build -f Dockerfile.redhat \
+          -t kube-auth-proxy:fips-test \
+          --build-arg VERSION=test \
+          --build-arg BUILDPLATFORM=linux/amd64 \
+          .
+    
+    - name: Setup Go for check-payload
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    
+    - name: Clone and build check-payload tool
+      run: |
+        git clone https://github.com/openshift/check-payload.git /tmp/check-payload
+        cd /tmp/check-payload
+        make
+    
+    - name: Extract container filesystem for scanning
+      run: |
+        mkdir -p /tmp/container-fs
+        docker create --name temp-fips-container kube-auth-proxy:fips-test
+        docker export temp-fips-container | tar -x -C /tmp/container-fs
+        docker rm temp-fips-container
+    
+    - name: Run FIPS compliance check
+      run: |
+        /tmp/check-payload/check-payload scan local --path /tmp/container-fs
+    
+    - name: Upload build artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fips-compliance-logs
+        path: |
+          kube-auth-proxy-fips.tar
+        retention-days: 7

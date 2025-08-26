@@ -1,0 +1,80 @@
+# Dockerfile.redhat - FIPS-compliant build for Red Hat environments
+# Argument for setting the oauth2-proxy build version
+ARG VERSION
+
+# All builds should be done using the platform native to the build node to allow
+#  cache sharing of the go mod download step.
+# Go cross compilation is also faster than emulation the go compilation across
+#  multiple platforms.
+FROM --platform=${BUILDPLATFORM} registry.access.redhat.com/ubi9/go-toolset:1.24 AS builder
+
+# Switch to root for build permissions
+USER root
+
+# Copy sources
+WORKDIR $GOPATH/src/github.com/opendatahub-io/kube-auth-proxy
+
+# Fetch dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Now pull in our code
+COPY . .
+
+# Arguments go here so that the previous steps can be cached if no external sources
+# have changed. These arguments are automatically set by the docker engine.
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+# Reload version argument
+ARG VERSION
+
+# Build FIPS-compliant binary and make sure there is at least an empty key file.
+#  This is useful for GCP App Engine custom runtime builds, because
+#  you cannot use multiline variables in their app.yaml, so you have to
+#  build the key into the container and then tell it where it is
+#  by setting OAUTH2_PROXY_JWT_KEY_FILE=/etc/ssl/private/jwt_signing_key.pem
+#  in app.yaml instead.
+# Set the cross compilation arguments based on the TARGETPLATFORM which is
+#  automatically set by the docker engine.
+RUN case ${TARGETPLATFORM} in \
+         "linux/amd64")  GOARCH=amd64  ;; \
+         # arm64 and arm64v8 are equivalent in go and do not require a goarm
+         # https://github.com/golang/go/wiki/GoArm
+         "linux/arm64" | "linux/arm/v8")  GOARCH=arm64  ;; \
+         "linux/ppc64le")  GOARCH=ppc64le  ;; \
+         "linux/s390x")  GOARCH=s390x  ;; \
+         "linux/arm/v6") GOARCH=arm GOARM=6  ;; \
+         "linux/arm/v7") GOARCH=arm GOARM=7 ;; \
+    esac && \
+    printf "Building FIPS-compliant OAuth2 Proxy for arch ${GOARCH}\n" && \
+    CGO_ENABLED=1 GOOS=linux GOARCH=${GOARCH} GOEXPERIMENT=strictfipsruntime \
+    go build -a -tags strictfipsruntime \
+    -ldflags="-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=${VERSION}" \
+    -o kube-auth-proxy github.com/opendatahub-io/kube-auth-proxy/v1 && \
+    touch jwt_signing_key.pem
+
+# Copy binary to FIPS-compliant runtime image
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+# Reload version
+ARG VERSION
+
+WORKDIR /
+COPY --from=builder $GOPATH/src/github.com/opendatahub-io/kube-auth-proxy/kube-auth-proxy /bin/kube-auth-proxy
+COPY --chown=1001:0 --from=builder $GOPATH/src/github.com/opendatahub-io/kube-auth-proxy/jwt_signing_key.pem /etc/ssl/private/jwt_signing_key.pem
+
+# Set proper permissions for non-root execution
+RUN chown -R 1001:0 /etc/ssl/private && \
+    chmod -R g=u /etc/ssl/private
+
+USER 1001
+
+LABEL org.opencontainers.image.licenses=MIT \
+      org.opencontainers.image.description="A reverse proxy that provides authentication with Google, Azure, OpenID Connect and many more identity providers. (FIPS-compliant)" \
+      org.opencontainers.image.documentation=https://github.com/opendatahub-io/kube-auth-proxy \
+      org.opencontainers.image.source=https://github.com/opendatahub-io/kube-auth-proxy \
+      org.opencontainers.image.url=https://quay.io/opendatahub/kube-auth-proxy \
+      org.opencontainers.image.title=kube-auth-proxy \
+      org.opencontainers.image.version=${VERSION}
+
+ENTRYPOINT ["/bin/kube-auth-proxy"]
