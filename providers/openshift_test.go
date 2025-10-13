@@ -270,6 +270,148 @@ func TestDiscoverValidateURL(t *testing.T) {
 	}
 }
 
+func TestOpenShiftProviderCreateSessionFromToken(t *testing.T) {
+	// Mock OpenShift user info API server
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check that the Authorization header contains the bearer token
+		authHeader := r.Header.Get("Authorization")
+		assert.True(t, strings.HasPrefix(authHeader, "Bearer "), "Authorization header should start with 'Bearer '")
+
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		switch token {
+		case "sha256~valid-token":
+			// Return valid user info
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"kind": "User",
+				"apiVersion": "user.openshift.io/v1",
+				"metadata": {
+					"name": "test-user",
+					"uid": "12345678-1234-1234-1234-123456789012"
+				},
+				"identities": ["myidp:test-user"],
+				"groups": ["developers", "testers"]
+			}`))
+		case "sha256~invalid-token":
+			// Return 401 Unauthorized for invalid token
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message": "Unauthorized"}`))
+		default:
+			// Return 500 for unexpected tokens
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"message": "Internal Server Error"}`))
+		}
+	}))
+	defer userInfoServer.Close()
+
+	// Parse user info URL
+	validateURL, err := url.Parse(userInfoServer.URL)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		token       string
+		expectError bool
+		expectUser  string
+		expectEmail string
+	}{
+		{
+			name:        "Valid OpenShift OAuth token",
+			token:       "sha256~valid-token",
+			expectError: false,
+			expectUser:  "test-user",
+			expectEmail: "",
+		},
+		{
+			name:        "Invalid OpenShift OAuth token",
+			token:       "sha256~invalid-token",
+			expectError: true,
+			expectUser:  "",
+			expectEmail: "",
+		},
+		{
+			name:        "Empty token",
+			token:       "",
+			expectError: true,
+			expectUser:  "",
+			expectEmail: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &OpenShiftProvider{
+				ProviderData: &ProviderData{
+					ProviderName: "OpenShift OAuth",
+					ValidateURL:  validateURL,
+				},
+			}
+
+			session, err := provider.CreateSessionFromToken(context.Background(), tt.token)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, session)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, session)
+				assert.Equal(t, tt.expectUser, session.User)
+				assert.Equal(t, tt.token, session.AccessToken)
+				assert.NotNil(t, session.CreatedAt)
+				assert.NotNil(t, session.ExpiresOn)
+				// Verify that expiration is set to approximately 24 hours from now
+				// Allow 1 minute of tolerance for test execution time
+				expectedExpiration := session.CreatedAt.Add(24 * 60 * 60 * 1000000000) // 24 hours in nanoseconds
+				actualExpiration := *session.ExpiresOn
+				diff := actualExpiration.Sub(expectedExpiration)
+				assert.True(t, diff < 60*1000000000 && diff > -60*1000000000, "Expiration should be approximately 24 hours from creation")
+			}
+		})
+	}
+}
+
+func TestOpenShiftProviderCreateSessionFromTokenWithGroups(t *testing.T) {
+	// Mock OpenShift user info API server that returns groups
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"kind": "User",
+			"apiVersion": "user.openshift.io/v1",
+			"metadata": {
+				"name": "admin-user",
+				"uid": "admin-uid"
+			},
+			"identities": ["ldap:admin"],
+			"groups": ["system:cluster-admins", "developers", "viewers"]
+		}`))
+	}))
+	defer userInfoServer.Close()
+
+	validateURL, err := url.Parse(userInfoServer.URL)
+	require.NoError(t, err)
+
+	provider := &OpenShiftProvider{
+		ProviderData: &ProviderData{
+			ProviderName: "OpenShift OAuth",
+			ValidateURL:  validateURL,
+		},
+	}
+
+	session, err := provider.CreateSessionFromToken(context.Background(), "sha256~admin-token")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, session)
+	assert.Equal(t, "admin-user", session.User)
+	assert.Equal(t, "sha256~admin-token", session.AccessToken)
+	assert.Contains(t, session.Groups, "system:cluster-admins")
+	assert.Contains(t, session.Groups, "developers")
+	assert.Contains(t, session.Groups, "viewers")
+	assert.Equal(t, 3, len(session.Groups))
+}
+
 // Helper function to test cache key formatting
 func formatCacheKey(useSystemTrustStore bool, capaths []string) string {
 	if useSystemTrustStore {

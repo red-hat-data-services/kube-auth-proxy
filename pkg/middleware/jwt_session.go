@@ -99,12 +99,12 @@ func (j *jwtSessionLoader) findTokenFromHeader(header string) (string, error) {
 		return "", err
 	}
 
-	if tokenType == "Bearer" && j.jwtRegex.MatchString(token) {
+	if tokenType == authTypeBearer && j.jwtRegex.MatchString(token) {
 		// Found a JWT as a bearer token
 		return token, nil
 	}
 
-	if tokenType == "Basic" {
+	if tokenType == authTypeBasic {
 		// Check if we have a Bearer token masquerading in Basic
 		return j.getBasicToken(token)
 	}
