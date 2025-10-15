@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+// Authorization header token type constants
+const (
+	authTypeBearer = "Bearer"
+	authTypeBasic  = "Basic"
+)
+
 // splitAuthHeader takes the auth header value and splits it into the token type
 // and the token value.
 func splitAuthHeader(header string) (string, string, error) {

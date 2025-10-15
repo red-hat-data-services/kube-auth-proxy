@@ -277,7 +277,8 @@ func (p *OpenShiftProvider) EnrichSession(ctx context.Context, s *sessions.Sessi
 		Metadata struct {
 			Name string `json:"name"`
 		} `json:"metadata"`
-		Email string `json:"email"`
+		Email  string   `json:"email"`
+		Groups []string `json:"groups"`
 	}
 
 	if err := json.Unmarshal(body, &userResp); err != nil {
@@ -306,7 +307,41 @@ func (p *OpenShiftProvider) EnrichSession(ctx context.Context, s *sessions.Sessi
 		s.Email = name + "@cluster.local"
 	}
 
+	// Extract groups if present
+	if len(userResp.Groups) > 0 {
+		s.Groups = userResp.Groups
+	}
+
 	return nil
+}
+
+// CreateSessionFromToken converts OpenShift OAuth bearer tokens into sessions
+// This enables CLI access using `oc whoami -t` tokens with Authorization: Bearer header
+func (p *OpenShiftProvider) CreateSessionFromToken(ctx context.Context, token string) (*sessions.SessionState, error) {
+	if token == "" {
+		return nil, errors.New("empty token provided")
+	}
+
+	// Create a session with the provided token
+	session := &sessions.SessionState{
+		AccessToken: token,
+	}
+
+	// Validate the token and enrich session with user information
+	// by calling the OpenShift user info endpoint
+	err := p.EnrichSession(ctx, session)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate token and get user info: %v", err)
+	}
+
+	// Set session creation time and expiration
+	session.CreatedAtNow()
+	// OpenShift tokens typically don't have expiration in the token itself,
+	// but we can set a reasonable session lifetime (e.g., 24 hours)
+	// The token will be validated on each request anyway via ValidateSession
+	session.SetExpiresOn(time.Now().Add(24 * time.Hour))
+
+	return session, nil
 }
 
 // ValidateSession validates the session by checking the user endpoint

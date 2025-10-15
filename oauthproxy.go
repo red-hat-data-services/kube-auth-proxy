@@ -397,16 +397,25 @@ func buildSessionChain(opts *options.Options, provider providers.Provider, sessi
 	chain := alice.New()
 
 	if opts.SkipJwtBearerTokens {
-		sessionLoaders := []middlewareapi.TokenToSessionFunc{
-			provider.CreateSessionFromToken,
-		}
+		_, isOpenShift := provider.(*providers.OpenShiftProvider)
 
-		for _, verifier := range opts.GetJWTBearerVerifiers() {
-			sessionLoaders = append(sessionLoaders,
-				middlewareapi.CreateTokenToSessionFunc(verifier.Verify))
+		if isOpenShift {
+			// OpenShift: OAuth loader for sha256~ tokens
+			oauthSessionLoaders := []middlewareapi.TokenToSessionFunc{
+				provider.CreateSessionFromToken,
+			}
+			chain = chain.Append(middleware.NewOAuthSessionLoader(oauthSessionLoaders, opts.BearerTokenLoginFallback))
+		} else {
+			// OIDC: JWT loader for JWT tokens
+			jwtSessionLoaders := []middlewareapi.TokenToSessionFunc{
+				provider.CreateSessionFromToken,
+			}
+			for _, verifier := range opts.GetJWTBearerVerifiers() {
+				jwtSessionLoaders = append(jwtSessionLoaders,
+					middlewareapi.CreateTokenToSessionFunc(verifier.Verify))
+			}
+			chain = chain.Append(middleware.NewJwtSessionLoader(jwtSessionLoaders, opts.BearerTokenLoginFallback))
 		}
-
-		chain = chain.Append(middleware.NewJwtSessionLoader(sessionLoaders, opts.BearerTokenLoginFallback))
 	}
 
 	if validator != nil {
