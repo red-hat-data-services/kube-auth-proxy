@@ -135,6 +135,11 @@ clean: ## Cleanup release and build files
 lint: validate-go-version ## Lint all files using golangci-lint
 	GO111MODULE=on $(GOLANGCILINT) run
 
+.PHONY: lint-fix
+lint-fix: validate-go-version ## Lint and automatically fix all files using golangci-lint
+	GO111MODULE=on $(GOLANGCILINT) run --fix
+	GO111MODULE=on $(GOLANGCILINT) fmt
+
 .PHONY: validate-go-version
 validate-go-version: ## Validate Go environment requirements
 	@if [ "$(GO_VERSION)" != "$(GO_REQUIRED_VERSION)" ]; then \
