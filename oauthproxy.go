@@ -102,6 +102,7 @@ type OAuthProxy struct {
 	allowQuerySemicolons bool
 	realClientIPParser   ipapi.RealClientIPParser
 	trustedIPs           *ip.NetSet
+	cachedLogoutURL      string
 
 	sessionChain      alice.Chain
 	headersChain      alice.Chain
@@ -748,22 +749,40 @@ func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
 
 // SignOut sends a response to clear the authentication cookie
 func (p *OAuthProxy) SignOut(rw http.ResponseWriter, req *http.Request) {
-	redirect, err := p.appDirector.GetRedirect(req)
-	if err != nil {
-		logger.Errorf("Error obtaining redirect: %v", err)
-		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
+	// Get redirect URL and session in parallel
+	redirect, redirectErr := p.appDirector.GetRedirect(req)
+	session, _ := p.getAuthenticatedSession(rw, req)
+
+	// Handle redirect error
+	if redirectErr != nil {
+		logger.Errorf("Error obtaining redirect: %v", redirectErr)
+		p.ErrorPage(rw, req, http.StatusInternalServerError, redirectErr.Error())
 		return
 	}
-	err = p.ClearSessionCookie(rw, req)
-	if err != nil {
+
+	// Clear session cookie
+	if err := p.ClearSessionCookie(rw, req); err != nil {
 		logger.Errorf("Error clearing session cookie: %v", err)
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	p.backendLogout(rw, req)
+	// Choose logout strategy based on configuration
+	providerData := p.provider.Data()
+	if providerData.BackendLogoutURL != "" {
+		// Backend logout: server-side call to IdP
+		p.backendLogout(rw, req)
+		http.Redirect(rw, req, redirect, http.StatusFound)
+		return
+	}
 
-	http.Redirect(rw, req, redirect, http.StatusFound)
+	// Frontend logout: redirect browser to IdP logout endpoint (OIDC only)
+	if p.isOIDCProvider() {
+		p.frontendLogout(rw, req, session, redirect)
+	} else {
+		// For non-OIDC providers, use simple redirect
+		http.Redirect(rw, req, redirect, http.StatusFound)
+	}
 }
 
 func (p *OAuthProxy) backendLogout(rw http.ResponseWriter, req *http.Request) {
@@ -795,6 +814,172 @@ func (p *OAuthProxy) backendLogout(rw http.ResponseWriter, req *http.Request) {
 	if resp.StatusCode != 200 {
 		logger.Errorf("error while calling backend logout url, returned error code %v", resp.StatusCode)
 	}
+}
+
+// redactSensitiveQueryParams redacts sensitive query parameters from a URL for safe logging
+func redactSensitiveQueryParams(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "[invalid URL]"
+	}
+
+	query := parsedURL.Query()
+	sensitiveParams := []string{"id_token_hint", "id_token", "access_token", "refresh_token"}
+
+	for _, param := range sensitiveParams {
+		if query.Has(param) {
+			query.Set(param, "[REDACTED]")
+		}
+	}
+
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
+
+// frontendLogout handles browser-based logout by redirecting to the IdP logout endpoint
+func (p *OAuthProxy) frontendLogout(rw http.ResponseWriter, req *http.Request, session *sessionsapi.SessionState, fallbackRedirect string) {
+	// Try to get the logout URL (cached or discovered)
+	logoutURL := p.getLogoutURL()
+	if logoutURL == "" {
+		// Fallback: simple redirect if no logout URL available
+		logger.Printf("SignOut: No logout URL available, using fallback redirect")
+		http.Redirect(rw, req, fallbackRedirect, http.StatusFound)
+		return
+	}
+
+	// Add id_token_hint if session and token are available
+	if session != nil && session.IDToken != "" {
+		separator := "?"
+		if strings.Contains(logoutURL, "?") {
+			separator = "&"
+		}
+		logoutURL += separator + "id_token_hint=" + url.QueryEscape(session.IDToken)
+		logger.Printf("SignOut: Redirecting to OIDC logout with id_token_hint")
+	} else {
+		logger.Printf("SignOut: Redirecting to OIDC logout without id_token_hint")
+	}
+
+	logger.Printf("SignOut: Using logout URL: %s", redactSensitiveQueryParams(logoutURL))
+	http.Redirect(rw, req, logoutURL, http.StatusFound)
+}
+
+// discoverLogoutURL fetches the logout URL from OIDC .well-known endpoint
+func (p *OAuthProxy) discoverLogoutURL() (string, error) {
+	providerData := p.provider.Data()
+
+	// Validate that LoginURL is available and properly formatted
+	if providerData.LoginURL == nil {
+		return "", fmt.Errorf("could not determine issuer URL for OIDC discovery")
+	}
+
+	loginURL := providerData.LoginURL
+
+	// Ensure LoginURL has HTTPS scheme and a host for security
+	if loginURL.Scheme != "https" {
+		return "", fmt.Errorf("could not determine issuer URL for OIDC discovery")
+	}
+	if loginURL.Host == "" {
+		return "", fmt.Errorf("could not determine issuer URL for OIDC discovery")
+	}
+
+	// Derive issuer URL by parsing and manipulating the login URL
+	// For Keycloak OIDC: https://host/realms/realm/protocol/openid-connect/auth -> https://host/realms/realm
+	issuerURL := &url.URL{
+		Scheme: loginURL.Scheme,
+		Host:   loginURL.Host,
+	}
+
+	// Trim known OIDC path segments to get the issuer
+	loginPath := loginURL.Path
+	if strings.HasSuffix(loginPath, "/protocol/openid-connect/auth") {
+		issuerURL.Path = strings.TrimSuffix(loginPath, "/protocol/openid-connect/auth")
+	} else {
+		return "", fmt.Errorf("could not determine issuer URL for OIDC discovery")
+	}
+
+	// Construct .well-known URL using proper URL methods
+	wellKnownPath := strings.TrimSuffix(issuerURL.Path, "/") + "/.well-known/openid-configuration"
+	wellKnownURL := &url.URL{
+		Scheme: issuerURL.Scheme,
+		Host:   issuerURL.Host,
+		Path:   wellKnownPath,
+	}
+
+	// Verify well-known URL host matches login URL host to prevent SSRF
+	if wellKnownURL.Host != loginURL.Host {
+		return "", fmt.Errorf("could not determine issuer URL for OIDC discovery")
+	}
+
+	// Create HTTP client with timeout to prevent hanging requests
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Create request with context and timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	wellKnownURLStr := wellKnownURL.String()
+	req, err := http.NewRequestWithContext(ctx, "GET", wellKnownURLStr, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch OIDC discovery document: %v", err)
+	}
+
+	// #nosec G107 -- wellKnownURL host validated to match provider LoginURL host and using timeout
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch OIDC discovery document: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("OIDC discovery document returned status %d", resp.StatusCode)
+	}
+
+	// Parse the JSON response
+	var discovery struct {
+		EndSessionEndpoint string `json:"end_session_endpoint"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return "", fmt.Errorf("failed to parse OIDC discovery document: %v", err)
+	}
+
+	if discovery.EndSessionEndpoint == "" {
+		return "", fmt.Errorf("end_session_endpoint not found in OIDC discovery document")
+	}
+
+	logger.Printf("Discovered OIDC logout URL: %s", discovery.EndSessionEndpoint)
+	return discovery.EndSessionEndpoint, nil
+}
+
+// getLogoutURL returns the cached logout URL or discovers it if not cached
+func (p *OAuthProxy) getLogoutURL() string {
+	// Check if we have a cached logout URL
+	if p.cachedLogoutURL != "" {
+		return p.cachedLogoutURL
+	}
+
+	// Discover and cache the logout URL
+	if logoutURL, err := p.discoverLogoutURL(); err == nil && logoutURL != "" {
+		p.cachedLogoutURL = logoutURL
+		return logoutURL
+	}
+
+	// Return empty string if discovery fails
+	return ""
+}
+
+// isOIDCProvider checks if the current provider is OIDC-based
+func (p *OAuthProxy) isOIDCProvider() bool {
+	providerData := p.provider.Data()
+	// Check if this is an OIDC provider by looking for OIDC-specific URLs
+	// OIDC providers typically have login URLs ending with /protocol/openid-connect/auth
+	if providerData.LoginURL != nil {
+		loginURL := providerData.LoginURL.String()
+		return strings.Contains(loginURL, "/protocol/openid-connect/auth")
+	}
+	return false
 }
 
 // OAuthStart starts the OAuth2 authentication flow
