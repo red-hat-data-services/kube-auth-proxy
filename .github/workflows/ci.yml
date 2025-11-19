@@ -64,13 +64,15 @@ jobs:
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
-    
+
     - name: Set up Docker Buildx
       id: buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Docker Build
+    - name: Docker Build (amd64 only for PRs)
       if: (!startsWith(github.head_ref, 'release'))
+      env:
+        DOCKER_BUILD_PLATFORM: linux/amd64
       run: |
         make build-docker
 
