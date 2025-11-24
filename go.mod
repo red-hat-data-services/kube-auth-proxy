@@ -1,8 +1,6 @@
 module github.com/opendatahub-io/kube-auth-proxy/v1
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.25.3
 
 require (
 	github.com/Bose/minisentinel v0.0.0-20200130220412-917c5a9223bb
@@ -11,7 +9,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5
 	github.com/bitly/go-simplejson v0.5.1
 	github.com/bsm/redislock v0.9.4
-	github.com/coreos/go-oidc/v3 v3.16.0
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344
@@ -58,7 +56,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.3 // indirect
+	github.com/prometheus/common v0.67.4 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
