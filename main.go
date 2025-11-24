@@ -20,7 +20,7 @@ func main() {
 
 	// Because we parse early to determine alpha vs legacy config, we have to
 	// ignore any unknown flags for now
-	configFlagSet.ParseErrorsWhitelist.UnknownFlags = true
+	configFlagSet.ParseErrorsAllowlist.UnknownFlags = true
 
 	config := configFlagSet.String("config", "", "path to config file")
 	alphaConfig := configFlagSet.String("alpha-config", "", "path to alpha config file (use at your own risk - the structure in this config file may change between minor releases)")
