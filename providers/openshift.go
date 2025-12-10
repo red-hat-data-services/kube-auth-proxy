@@ -400,8 +400,15 @@ func (p *OpenShiftProvider) newOpenShiftClient() (*http.Client, error) {
 		capaths = []string{serviceAccountCAPath}
 	}
 
-	// Simple cache key based on CA paths and system trust store setting
-	cacheKey := fmt.Sprintf("%t:%s", p.useSystemTrustStore, strings.Join(capaths, ","))
+	// Check if DefaultTransport has InsecureSkipVerify set (from --ssl-insecure-skip-verify flag)
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	insecureSkipVerify := false
+	if ok && defaultTransport.TLSClientConfig != nil {
+		insecureSkipVerify = defaultTransport.TLSClientConfig.InsecureSkipVerify
+	}
+
+	// Simple cache key based on CA paths, system trust store, and insecure skip verify settings
+	cacheKey := fmt.Sprintf("%t:%t:%s", p.useSystemTrustStore, insecureSkipVerify, strings.Join(capaths, ","))
 
 	if httpClient, ok := p.httpClientCache.Load(cacheKey); ok {
 		return httpClient.(*http.Client), nil
@@ -439,6 +446,8 @@ func (p *OpenShiftProvider) newOpenShiftClient() (*http.Client, error) {
 				RootCAs: pool,
 				// Use strong security settings
 				MinVersion: tls.VersionTLS12,
+				// #nosec G402 -- InsecureSkipVerify is a configurable option we allow (from --ssl-insecure-skip-verify)
+				InsecureSkipVerify: insecureSkipVerify,
 			},
 		},
 		Timeout: 1 * time.Minute,
