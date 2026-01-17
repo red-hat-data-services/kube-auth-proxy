@@ -24,15 +24,13 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/opendatahub/odh-kube-auth-proxy:{{revision}}
+    value: quay.io/opendatahub/odh-kube-auth-proxy:odh-pr 
   - name: dockerfile
     value: Dockerfile.redhat
   - name: path-context
     value: .
   - name: additional-tags
     value:
-    - '{{target_branch}}-{{revision}}'
-    - 'odh-pr' 
     - 'odh-pr-{{revision}}'
   - name: pipeline-type
     value: pull-request
