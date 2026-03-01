@@ -1,6 +1,6 @@
 module github.com/opendatahub-io/kube-auth-proxy/v1
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/Bose/minisentinel v0.0.0-20200130220412-917c5a9223bb
@@ -22,25 +22,26 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/mbland/hmacauth v0.0.0-20170912233209-44256dfd4bfa
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
-	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/ginkgo/v2 v2.27.2
+	github.com/onsi/gomega v1.38.2
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/spf13/cast v1.9.2
-	github.com/spf13/pflag v1.0.7
+	github.com/spf13/pflag v1.0.9
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
-	golang.org/x/crypto v0.40.0
-	golang.org/x/net v0.42.0
+	golang.org/x/crypto v0.44.0
+	golang.org/x/net v0.47.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.18.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	k8s.io/apimachinery v0.33.3
+	k8s.io/apimachinery v0.35.2
 )
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -57,19 +58,19 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
+	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
