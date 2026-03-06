@@ -92,4 +92,6 @@ LABEL \
     io.k8s.description="kube-auth-proxy" \
     com.redhat.license_terms="https://www.redhat.com/licenses/Red_Hat_Standard_EULA_20191108.pdf"
 
+LABEL test="test"
+
 ENTRYPOINT ["/bin/entrypoint"]
