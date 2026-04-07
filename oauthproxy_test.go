@@ -3581,3 +3581,93 @@ func TestOAuthCallbackMissingCSRFReturns403WhenRedirectDisabled(t *testing.T) {
 	assert.Contains(t, body, "403", "body should be error page")
 	assert.Contains(t, body, "CSRF", "body should mention CSRF")
 }
+
+func TestIsOIDCProviderWithEndSessionURL(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	endSessionURL, _ := url.Parse("https://login.microsoftonline.com/tenant/oauth2/v2.0/logout")
+	proxy.provider.Data().EndSessionURL = endSessionURL
+
+	assert.True(t, proxy.isOIDCProvider(), "should return true when EndSessionURL is set")
+}
+
+func TestIsOIDCProviderWithoutEndSessionURL(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	proxy.provider.Data().EndSessionURL = nil
+
+	assert.False(t, proxy.isOIDCProvider(), "should return false when EndSessionURL is nil")
+}
+
+func TestGetLogoutURLReturnsEndSessionURL(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	expected := "https://login.microsoftonline.com/tenant/oauth2/v2.0/logout"
+	endSessionURL, _ := url.Parse(expected)
+	proxy.provider.Data().EndSessionURL = endSessionURL
+
+	assert.Equal(t, expected, proxy.getLogoutURL())
+}
+
+func TestGetLogoutURLReturnsEmptyWhenNil(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	proxy.provider.Data().EndSessionURL = nil
+
+	assert.Empty(t, proxy.getLogoutURL())
+}
+
+func TestSignOutOIDCClearsCookieAndRedirectsToIdP(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	endSessionURL, _ := url.Parse("https://login.microsoftonline.com/tenant/oauth2/v2.0/logout")
+	proxy.provider.Data().EndSessionURL = endSessionURL
+
+	rw := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/oauth2/sign_out", nil)
+	proxy.ServeHTTP(rw, req)
+
+	assert.Equal(t, http.StatusFound, rw.Code)
+
+	location := rw.Header().Get("Location")
+	assert.Contains(t, location, "https://login.microsoftonline.com/tenant/oauth2/v2.0/logout")
+	assert.NotContains(t, location, "post_logout_redirect_uri")
+	assert.NotContains(t, location, "state=logout")
+}
+
+func TestSignOutNonOIDCClearsCookieDirectly(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	proxy.provider.Data().EndSessionURL = nil
+
+	rw := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/oauth2/sign_out", nil)
+	proxy.ServeHTTP(rw, req)
+
+	assert.Equal(t, http.StatusFound, rw.Code)
+	assert.NotContains(t, rw.Header().Get("Location"), "login.microsoftonline.com")
+}
