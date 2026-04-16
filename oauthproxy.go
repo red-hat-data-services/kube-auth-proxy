@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -55,6 +56,11 @@ const (
 	authOnlyPath      = "/auth"
 	userInfoPath      = "/userinfo"
 	staticPathPrefix  = "/static/"
+
+	// OpenShift OAuthAccessToken API
+	oauthAccessTokenAPIPath = "/apis/oauth.openshift.io/v1/oauthaccesstokens" // #nosec G101
+	kubeServiceHost         = "kubernetes.default.svc"
+	sha256Prefix            = "sha256~"
 )
 
 var (
@@ -793,6 +799,15 @@ func (p *OAuthProxy) SignOut(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Delete OAuthAccessToken in the background (OpenShift provider only).
+	// This is best-effort and must not block the logout response.
+	if session != nil {
+		accessToken := session.AccessToken
+		go func() {
+			p.deleteOAuthAccessToken(&sessionsapi.SessionState{AccessToken: accessToken})
+		}()
+	}
+
 	if err := p.ClearSessionCookie(rw, req); err != nil {
 		logger.Errorf("Error clearing session cookie: %v", err)
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
@@ -815,6 +830,65 @@ func (p *OAuthProxy) SignOut(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	http.Redirect(rw, req, redirect, http.StatusFound)
+}
+
+// deleteOAuthAccessToken deletes the OAuthAccessToken resource from the cluster
+// when using the OpenShift provider. This matches what the OCP console does on logout.
+// Reference: https://github.com/openshift/console/pull/6445
+// For sha256~ prefixed tokens, the resource name is the sha256 hash of the raw
+// token part, not the bearer token itself.
+func (p *OAuthProxy) deleteOAuthAccessToken(session *sessionsapi.SessionState) {
+	if session.AccessToken == "" {
+		return
+	}
+
+	openshiftProvider, ok := p.provider.(*providers.OpenShiftProvider)
+	if !ok {
+		return
+	}
+
+	tokenName := session.AccessToken
+	if strings.HasPrefix(tokenName, sha256Prefix) {
+		tokenName = tokenToObjectName(tokenName)
+	}
+
+	deleteURL := fmt.Sprintf("%s://%s%s/%s", schemeHTTPS, kubeServiceHost, oauthAccessTokenAPIPath, tokenName)
+
+	req, err := http.NewRequest(http.MethodDelete, deleteURL, nil)
+	if err != nil {
+		logger.Errorf("SignOut: failed to create OAuthAccessToken delete request: %v", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
+
+	client, err := openshiftProvider.NewHTTPClient()
+	if err != nil {
+		logger.Errorf("SignOut: failed to create HTTP client for OAuthAccessToken deletion: %v", err)
+		return
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Errorf("SignOut: failed to delete OAuthAccessToken: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		logger.Printf("SignOut: deleted OAuthAccessToken (status %d)", resp.StatusCode)
+	} else {
+		logger.Errorf("SignOut: failed to delete OAuthAccessToken: status %d", resp.StatusCode)
+	}
+}
+
+// tokenToObjectName converts a sha256~ prefixed bearer token to its
+// OAuthAccessToken resource name. The resource name is sha256~<base64url(sha256(raw))>
+// where raw is the token with the sha256~ prefix stripped.
+// Reference: https://github.com/openshift/console/pull/6431
+func tokenToObjectName(token string) string {
+	raw := strings.TrimPrefix(token, sha256Prefix)
+	h := sha256.Sum256([]byte(raw))
+	return sha256Prefix + base64.RawURLEncoding.EncodeToString(h[:])
 }
 
 func (p *OAuthProxy) backendLogout(rw http.ResponseWriter, req *http.Request) {
