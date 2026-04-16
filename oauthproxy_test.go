@@ -3671,3 +3671,28 @@ func TestSignOutNonOIDCClearsCookieDirectly(t *testing.T) {
 	assert.Equal(t, http.StatusFound, rw.Code)
 	assert.NotContains(t, rw.Header().Get("Location"), "login.microsoftonline.com")
 }
+
+func TestDeleteOAuthAccessTokenSkipsForNonOpenShiftProvider(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	// Default test provider is not OpenShift, so this should be a no-op
+	proxy.deleteOAuthAccessToken(&sessions.SessionState{
+		AccessToken: "sha256~test-token",
+	})
+}
+
+func TestDeleteOAuthAccessTokenSkipsWhenAccessTokenEmpty(t *testing.T) {
+	opts := baseTestOptions()
+	require.NoError(t, validation.Validate(opts))
+
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	require.NoError(t, err)
+
+	proxy.deleteOAuthAccessToken(&sessions.SessionState{
+		AccessToken: "",
+	})
+}
