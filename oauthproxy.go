@@ -824,7 +824,7 @@ func (p *OAuthProxy) SignOut(rw http.ResponseWriter, req *http.Request) {
 
 	// OIDC frontend logout: redirect browser to IdP's end_session_endpoint
 	// so the IdP can clear its SSO session. Same approach as OCP console.
-	if p.isOIDCProvider() {
+	if p.supportsRPInitiatedLogout() {
 		p.frontendLogout(rw, req, session)
 		return
 	}
@@ -852,9 +852,12 @@ func (p *OAuthProxy) deleteOAuthAccessToken(session *sessionsapi.SessionState) {
 		tokenName = tokenToObjectName(tokenName)
 	}
 
-	deleteURL := fmt.Sprintf("%s://%s%s/%s", schemeHTTPS, kubeServiceHost, oauthAccessTokenAPIPath, tokenName)
+	deleteURL := fmt.Sprintf("%s://%s%s/%s", schemeHTTPS, kubeServiceHost, oauthAccessTokenAPIPath, url.PathEscape(tokenName))
 
-	req, err := http.NewRequest(http.MethodDelete, deleteURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, deleteURL, nil)
 	if err != nil {
 		logger.Errorf("SignOut: failed to create OAuthAccessToken delete request: %v", err)
 		return
@@ -973,9 +976,9 @@ func (p *OAuthProxy) getLogoutURL() string {
 	return ""
 }
 
-// isOIDCProvider checks if the current provider supports RP-initiated logout
+// supportsRPInitiatedLogout checks if the current provider supports RP-initiated logout
 // by verifying that end_session_endpoint was discovered during startup.
-func (p *OAuthProxy) isOIDCProvider() bool {
+func (p *OAuthProxy) supportsRPInitiatedLogout() bool {
 	return p.provider.Data().EndSessionURL != nil
 }
 

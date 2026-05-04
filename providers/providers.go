@@ -88,7 +88,7 @@ func newProviderDataFromConfig(providerConfig options.Provider) (*ProviderData, 
 			p.SupportedCodeChallengeMethods = pkce.CodeChallengeAlgs
 
 			if esURL := pv.Provider().EndSessionURL(); esURL != "" {
-				if parsed, err := url.Parse(esURL); err == nil {
+				if parsed, err := url.Parse(esURL); err == nil && parsed.Scheme == "https" {
 					p.EndSessionURL = parsed
 					logger.Printf("Discovered end_session_endpoint: %s", esURL)
 				}
