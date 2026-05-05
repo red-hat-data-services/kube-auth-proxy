@@ -51,6 +51,8 @@ spec:
     - linux/ppc64le
   - name: image-expires-after
     value: 5d
+  - name: rhoai-version
+    value: "3.3.3"
   - name: enable-slack-failure-notification
     value: "false"
   pipelineRef:
