@@ -31,7 +31,9 @@ func initTransport(upstreamCAPool *x509.CertPool, upstreamClientCertPath, upstre
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.ResponseHeaderTimeout = timeout
 		if transport.TLSClientConfig == nil {
-			transport.TLSClientConfig = &tls.Config{}
+			transport.TLSClientConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
 		}
 		transport.TLSClientConfig.NextProtos = []string{"h2", "http/1.1"}
 		return transport, nil
@@ -61,7 +63,8 @@ func initTransport(upstreamCAPool *x509.CertPool, upstreamClientCertPath, upstre
 		ExpectContinueTimeout: 1 * time.Second,
 		ResponseHeaderTimeout: timeout,
 		TLSClientConfig: &tls.Config{
-			RootCAs: upstreamCAPool,
+			RootCAs:    upstreamCAPool,
+			MinVersion: tls.VersionTLS12,
 		},
 	}
 
