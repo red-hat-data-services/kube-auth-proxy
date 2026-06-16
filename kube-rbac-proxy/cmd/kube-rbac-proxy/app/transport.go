@@ -51,7 +51,8 @@ func initTransport(upstreamCAPool *x509.CertPool, upstreamClientCertPath, upstre
 
 	// http.Transport sourced from go 1.10.7
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		ForceAttemptHTTP2: true,
+		Proxy:             http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
