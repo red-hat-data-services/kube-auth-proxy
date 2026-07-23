@@ -3537,7 +3537,7 @@ func TestOAuthCallbackMissingCSRFRedirectsToSignIn(t *testing.T) {
 	// opts.DisableRedirectOnCSRFError not set → false → redirect on CSRF failure (default)
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	// Valid state format: "nonce:redirect". Redirect "/" is allowed. No CSRF cookie.
@@ -3566,7 +3566,7 @@ func TestOAuthCallbackMissingCSRFReturns403WhenRedirectDisabled(t *testing.T) {
 	opts.DisableRedirectOnCSRFError = true
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	state := "s2LEyNaz5kZdULSx3d9jmupR1rR5mzhg:/"
@@ -3586,7 +3586,7 @@ func TestIsOIDCProviderWithEndSessionURL(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	endSessionURL, _ := url.Parse("https://login.microsoftonline.com/tenant/oauth2/v2.0/logout")
@@ -3599,7 +3599,7 @@ func TestIsOIDCProviderWithoutEndSessionURL(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	proxy.provider.Data().EndSessionURL = nil
@@ -3611,7 +3611,7 @@ func TestGetLogoutURLReturnsEndSessionURL(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	expected := "https://login.microsoftonline.com/tenant/oauth2/v2.0/logout"
@@ -3625,7 +3625,7 @@ func TestGetLogoutURLReturnsEmptyWhenNil(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	proxy.provider.Data().EndSessionURL = nil
@@ -3637,7 +3637,7 @@ func TestSignOutOIDCClearsCookieAndRedirectsToIdP(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	endSessionURL, _ := url.Parse("https://login.microsoftonline.com/tenant/oauth2/v2.0/logout")
@@ -3659,7 +3659,7 @@ func TestSignOutNonOIDCClearsCookieDirectly(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	proxy.provider.Data().EndSessionURL = nil
@@ -3676,7 +3676,7 @@ func TestDeleteOAuthAccessTokenSkipsForNonOpenShiftProvider(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	// Default test provider is not OpenShift, so this should be a no-op
@@ -3689,7 +3689,7 @@ func TestDeleteOAuthAccessTokenSkipsWhenAccessTokenEmpty(t *testing.T) {
 	opts := baseTestOptions()
 	require.NoError(t, validation.Validate(opts))
 
-	proxy, err := NewOAuthProxy(opts, func(string) bool { return true }, nil)
+	proxy, err := NewOAuthProxy(opts, func(string) bool { return true })
 	require.NoError(t, err)
 
 	proxy.deleteOAuthAccessToken(&sessions.SessionState{
