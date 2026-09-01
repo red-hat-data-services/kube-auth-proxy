@@ -56,7 +56,7 @@ RUN case ${TARGETPLATFORM} in \
 
 
 # Copy binary to FIPS-compliant runtime image
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:7fbeae18dc9476399f565e68255f602a3374ea8614ba3d14843565131a13ff93
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 # Reload version
 ARG VERSION
 
