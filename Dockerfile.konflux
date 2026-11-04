@@ -6,7 +6,7 @@ ARG VERSION
 #  cache sharing of the go mod download step.
 # Go cross compilation is also faster than emulation the go compilation across
 #  multiple platforms.
-FROM --platform=${BUILDPLATFORM} registry.access.redhat.com/ubi9/go-toolset:1.26@sha256:beaa5163d808534e703aca4d3c2845210f032141eb0b85303c18d453d624d1f0 AS builder
+FROM --platform=${BUILDPLATFORM} registry.access.redhat.com/ubi9/go-toolset:1.26@sha256:c2bd0309bf78ae317024fdfc5602a31704e0dba9572f6d4b0bd4b681033dc965 AS builder
 
 # Switch to root for build permissions
 USER root
