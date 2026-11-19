@@ -8,7 +8,7 @@ ARG VERSION
 # For FIPS builds with CGO, we must build on the native target platform
 # because cross-compilation with CGO requires cross-compiler toolchains
 # which are not readily available in the UBI base images.
-FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/go-toolset:1.26@sha256:0a4666f7a4eb0644c97a73cba198eb268691b270d97831822689e7a2088f87be AS builder
+FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/go-toolset:1.26@sha256:0e3894cea4fc077084245e8aa2befc8a7d91a4f60fbf850f0b5b555cbe62ee26 AS builder
 
 # Switch to root for build permissions
 USER root
